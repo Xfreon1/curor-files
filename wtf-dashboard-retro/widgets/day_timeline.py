@@ -2,7 +2,7 @@ import time
 from textual.widgets import Static
 import widgets.pomo_state as pomo_state
 
-_BAR_LINES = 2  # terminal rows for the colored bar
+_BAR_LINES = 1  # terminal rows for the colored bar
 
 
 def _render(sessions: list, day_start: float, width: int) -> str:
@@ -62,7 +62,7 @@ class DayTimelineWidget(Static):
 
     DEFAULT_CSS = """
     DayTimelineWidget {
-        height: 4;
+        height: 3;
         width: 100%;
         padding: 0 1;
         background: #0f0f0f;
