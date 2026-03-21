@@ -64,13 +64,13 @@ def _cells_to_bar(cells: list) -> str:
 
 def _hour_labels_detail() -> str:
     row = [" "] * _DETAIL_WIDTH
-    for h in range(1, 25):
-        centre = (h - 1) * 60 + 30
-        s = str(h)
-        start = centre - len(s) // 2
+    for h in range(0, 24):
+        pos = h * 60          # left edge of this hour's 60-char slot
+        row[pos] = "|"        # tick mark at the hour boundary
+        s = str(h + 1)        # label: 1-24
         for k, ch in enumerate(s):
-            if 0 <= start + k < _DETAIL_WIDTH:
-                row[start + k] = ch
+            if pos + 1 + k < _DETAIL_WIDTH:
+                row[pos + 1 + k] = ch
     return "[#444444]" + "".join(row) + "[/]"
 
 
