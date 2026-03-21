@@ -1,17 +1,25 @@
 import time
 from textual.widgets import Static
-from textual.binding import Binding
 import widgets.pomo_state as pomo_state
 
-_DETAIL_WIDTH = 1440  # 1 char = 1 minute
+_COLORS = {"w": "#4ade80", "b": "#f87171", "f": "#1a1a1a"}
+_TEXT   = {"w": "#1a1a1a", "b": "#1a1a1a", "f": "#666666"}
 
 
-# ── Cell builders ─────────────────────────────────────────────────────────────
-
-def _build_cells_detail(sessions: list, day_start: float) -> list:
+def _build_bar(sessions: list, day_start: float, start_hour: int, width: int) -> str:
+    """Build one 6-hour bar with hour labels integrated inside."""
     now = time.time()
-    elapsed = int(min((now - day_start) / 60.0, _DETAIL_WIDTH))
-    cells = ["b"] * elapsed + ["f"] * (_DETAIL_WIDTH - elapsed)
+    bar_start_min = start_hour * 60
+    mins_per_char = 360.0 / width
+    elapsed_min = (now - day_start) / 60.0
+
+    # 1) Cell types: work / break / future
+    cells = []
+    for i in range(width):
+        abs_min = bar_start_min + i * mins_per_char
+        cells.append("f" if abs_min >= elapsed_min else "b")
+
+    # 2) Overlay work sessions
     for s in sessions:
         if s["type"] != "work":
             continue
@@ -19,89 +27,41 @@ def _build_cells_detail(sessions: list, day_start: float) -> list:
         s1 = min(s["end"] or now, now)
         if s1 - s0 < 60:
             continue
-        c0 = int((s0 - day_start) / 60.0)
-        c1 = int((s1 - day_start) / 60.0)
-        if c1 <= c0:
-            c1 = c0 + 1
-        for i in range(max(0, c0), min(_DETAIL_WIDTH, c1 + 1)):
-            cells[i] = "w"
-    return cells
-
-
-def _build_cells_overview(sessions: list, day_start: float, width: int) -> list:
-    now = time.time()
-    elapsed = int(min((now - day_start) / 86400.0, 1.0) * width)
-    cells = ["b"] * elapsed + ["f"] * (width - elapsed)
-    for s in sessions:
-        if s["type"] != "work":
-            continue
-        s0 = max(s["start"], day_start)
-        s1 = min(s["end"] or now, now)
-        if s1 - s0 < 60:
-            continue
-        c0 = int((s0 - day_start) / 86400.0 * width)
-        c1 = int((s1 - day_start) / 86400.0 * width)
-        if c1 <= c0:
-            c1 = c0 + 1
+        s0_min = (s0 - day_start) / 60.0
+        s1_min = (s1 - day_start) / 60.0
+        c0 = int((s0_min - bar_start_min) / mins_per_char)
+        c1 = int((s1_min - bar_start_min) / mins_per_char)
         for i in range(max(0, c0), min(width, c1 + 1)):
-            cells[i] = "w"
-    return cells
+            if cells[i] != "f":
+                cells[i] = "w"
 
+    # 3) Hour labels inside the bar
+    chars = [" "] * width
+    for h in range(6):
+        abs_hour = start_hour + h
+        pos = int(h * width / 6)
+        label = f"|{abs_hour}"
+        for k, ch in enumerate(label):
+            if pos + k < width:
+                chars[pos + k] = ch
 
-def _cells_to_bar(cells: list) -> str:
-    bar = ""
+    # 4) Render — group consecutive same-type cells
+    result = ""
     i = 0
-    while i < len(cells):
+    while i < width:
         c = cells[i]
         j = i
-        while j < len(cells) and cells[j] == c:
+        seg = ""
+        while j < width and cells[j] == c:
+            seg += chars[j]
             j += 1
-        color = "#4ade80" if c == "w" else ("#f87171" if c == "b" else "#1a1a1a")
-        bar += f"[{color}]{'█' * (j - i)}[/]"
+        result += f"[{_TEXT[c]} on {_COLORS[c]}]{seg}[/]"
         i = j
-    return bar
+    return result
 
-
-# ── Label builders ────────────────────────────────────────────────────────────
-
-def _labels_overview(width: int) -> str:
-    row = [" "] * width
-    for h in range(1, 25):
-        pos = min(int(h * width / 24) - 1, width - 1)
-        s = str(h)
-        for k, ch in enumerate(reversed(s)):
-            idx = pos - k
-            if 0 <= idx < width:
-                row[idx] = ch
-    return "[#888888]" + "".join(row) + "[/]"
-
-
-def _labels_detail_window(window_start: int, window_end: int) -> str:
-    """Render hour tick labels for the visible slice of the 1440-min bar."""
-    width = window_end - window_start
-    row = [" "] * width
-    for h in range(0, 24):
-        abs_pos = h * 60          # absolute minute position of this hour tick
-        rel = abs_pos - window_start
-        if 0 <= rel < width:
-            row[rel] = "|"
-            s = str(h + 1)
-            for k, ch in enumerate(s):
-                if rel + 1 + k < width:
-                    row[rel + 1 + k] = ch
-    return "[#888888]" + "".join(row) + "[/]"
-
-
-# ── Widget ────────────────────────────────────────────────────────────────────
 
 class DayTimelineWidget(Static):
-    """24-hour work/break timeline. t = toggle overview / detail (1 min per char)."""
-
-    can_focus = True
-
-    BINDINGS = [
-        Binding("t", "toggle_mode", "Toggle view", show=False),
-    ]
+    """24-hour work/break timeline — 4 stacked bars, 6 hours each."""
 
     DEFAULT_CSS = """
     DayTimelineWidget {
@@ -110,24 +70,13 @@ class DayTimelineWidget(Static):
         padding: 0 1;
         background: #0f0f0f;
     }
-    DayTimelineWidget:focus {
-        background: #111111;
-    }
     """
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self._detail_mode: bool = False
 
     def on_mount(self) -> None:
         self.set_interval(5, self._draw)
-        self.call_after_refresh(self._draw)  # wait for layout before first draw
+        self.call_after_refresh(self._draw)
 
     def on_resize(self, event) -> None:
-        self._draw()
-
-    def action_toggle_mode(self) -> None:
-        self._detail_mode = not self._detail_mode
         self._draw()
 
     def _draw(self) -> None:
@@ -135,25 +84,14 @@ class DayTimelineWidget(Static):
         sessions, day_start = pomo_state.get_snapshot()
 
         try:
-            width = self.size.width - 2  # subtract horizontal padding (0 1)
+            width = self.size.width - 2
             if width < 24:
                 width = 72
         except Exception:
             width = 72
 
-        if self._detail_mode:
-            current_minute = int((time.time() - day_start) / 60.0)
-            # Compute the visible window centred on current time
-            w_start = max(0, current_minute - width // 2)
-            w_end   = min(_DETAIL_WIDTH, w_start + width)
-            w_start = max(0, w_end - width)   # clamp if near end of day
+        lines = []
+        for bar_idx in range(4):
+            lines.append(_build_bar(sessions, day_start, bar_idx * 6, width))
 
-            all_cells = _build_cells_detail(sessions, day_start)
-            bar    = _cells_to_bar(all_cells[w_start:w_end])
-            labels = _labels_detail_window(w_start, w_end)
-        else:
-            cells  = _build_cells_overview(sessions, day_start, width)
-            bar    = _cells_to_bar(cells)
-            labels = _labels_overview(width)
-
-        self.update(bar + "\n" + labels)
+        self.update("\n".join(lines))
