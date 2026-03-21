@@ -68,12 +68,13 @@ class WeatherWidget(Static):
                 weather_list = d.get("weather", [{}])
                 weather_main = (weather_list[0].get("main", "") if weather_list else "")
                 icon = _WEATHER_ICONS.get(weather_main, "·")
+                desc = (weather_list[0].get("description", "") if weather_list else "").capitalize()[:12]
                 humidity = main.get("humidity", 0)
                 wind = d.get("wind", {}).get("speed", 0)
                 lines.append(
                     f"[bold white]{name:<12}[/] "
                     f"[bold #4ade80]{temp:>5.1f}°[/] "
-                    f"{icon} "
+                    f"{icon} [#888888]{desc}[/] "
                     f"[#666666]H:[/][white]{humidity}%[/] "
                     f"[#666666]W:[/][white]{wind:.1f}[/]"
                 )
