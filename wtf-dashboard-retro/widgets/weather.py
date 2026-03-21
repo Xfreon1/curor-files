@@ -8,7 +8,7 @@ _WEATHER_ICONS: dict[str, str] = {
     "Clouds":       "☁",   # U+2601
     "Rain":         "☂",   # U+2602
     "Drizzle":      "☂",   # U+2602
-    "Thunderstorm": "⚡",  # U+26A1
+    "Thunderstorm": "⛈",  # U+26C8
     "Snow":         "❄",   # U+2744
     "Mist":         "≈",   # U+2248
     "Fog":          "≈",
