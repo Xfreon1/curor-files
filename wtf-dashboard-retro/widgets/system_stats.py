@@ -189,11 +189,12 @@ class SystemStatsWidget(Static):
 
         ram_pct = ram.percent
 
-        def disk_row(label, pct, used, total, temp=None):
+        def disk_row(label, pct, used, total, free, temp=None):
             t = f"  {_temp(temp)}" if temp is not None else ""
             return (
                 f"[#888888]{label:<4}[/] [{pct_color(pct,80,95)}]{pct:5.1f}%[/] "
-                f"{pct_bar(pct)} [#666666]{used:.0f}/{total:.0f}GB[/]{t}"
+                f"{pct_bar(pct)} [#666666]{used:.0f}/{total:.0f}GB[/]"
+                f" [#4ade80]{free:.0f}GB free[/]{t}"
             )
 
         lines = [
@@ -206,7 +207,7 @@ class SystemStatsWidget(Static):
         ]
 
         for label, usage in disks:
-            lines.append(disk_row(label, usage.percent, usage.used / 1e9, usage.total / 1e9))
+            lines.append(disk_row(label, usage.percent, usage.used / 1e9, usage.total / 1e9, usage.free / 1e9))
 
         lines.extend([
             "",
