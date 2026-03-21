@@ -74,9 +74,9 @@ class WeatherWidget(Static):
                 lines.append(
                     f"[bold white]{name:<12}[/] "
                     f"[bold #4ade80]{temp:>5.1f}°[/] "
-                    f"{icon} [#888888]{desc}[/] "
                     f"[#666666]H:[/][white]{humidity}%[/] "
-                    f"[#666666]W:[/][white]{wind:.1f}[/]"
+                    f"[#666666]W:[/][white]{wind:.1f}[/] "
+                    f"{icon} [#888888]{desc}[/]"
                 )
             except (httpx.HTTPError, KeyError, TypeError) as e:
                 lines.append(f"[#f87171]{city.split(',')[0]}: error[/]")
