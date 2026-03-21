@@ -2,66 +2,58 @@ import time
 from textual.widgets import Static
 import widgets.pomo_state as pomo_state
 
-_BAR_LINES = 1  # terminal rows for the colored bar
+_WIDTH = 1440  # 24 hours × 60 minutes — 1 char = 1 minute
 
 
-def _render(sessions: list, day_start: float, width: int) -> str:
+def _render(sessions: list, day_start: float) -> str:
     now = time.time()
+    elapsed = int(min((now - day_start) / 60.0, _WIDTH))
 
-    # How many cells have elapsed so far today
-    elapsed = int(min((now - day_start) / 86400.0, 1.0) * width)
-
-    # Build cell array: 'w'=work, 'b'=break, 'f'=future
-    cells = ["b"] * elapsed + ["f"] * (width - elapsed)
+    # 'w' = work, 'b' = break, 'f' = future
+    cells = ["b"] * elapsed + ["f"] * (_WIDTH - elapsed)
 
     for s in sessions:
         if s["type"] != "work":
             continue
         s0 = max(s["start"], day_start)
         s1 = min(s["end"] or now, now)
-        duration = s1 - s0
-        if duration < 60:  # ignore sub-minute sessions
+        if s1 - s0 < 60:      # skip sub-minute sessions
             continue
-        c0 = int((s0 - day_start) / 86400.0 * width)
-        c1 = min(int((s1 - day_start) / 86400.0 * width), elapsed - 1)
-        if c1 <= c0:  # guarantee at least 1 char for sessions >= 1 min
+        c0 = int((s0 - day_start) / 60.0)
+        c1 = int((s1 - day_start) / 60.0)
+        if c1 <= c0:
             c1 = c0 + 1
-        for i in range(max(0, c0), min(width, c1 + 1)):
+        for i in range(max(0, c0), min(_WIDTH, c1 + 1)):
             cells[i] = "w"
 
     # RLE → colored █ chars
     bar = ""
     i = 0
-    while i < width:
+    while i < _WIDTH:
         c = cells[i]
         j = i
-        while j < width and cells[j] == c:
+        while j < _WIDTH and cells[j] == c:
             j += 1
-        if c == "w":
-            color = "#4ade80"
-        elif c == "b":
-            color = "#f87171"
-        else:
-            color = "#1a1a1a"
+        color = "#4ade80" if c == "w" else ("#f87171" if c == "b" else "#1a1a1a")
         bar += f"[{color}]{'█' * (j - i)}[/]"
         i = j
 
-    # Hour labels: right-align each number at its hour boundary
-    row = [" "] * width
+    # Hour labels centred in each 60-char slot
+    row = [" "] * _WIDTH
     for h in range(1, 25):
-        pos = min(int(h * width / 24) - 1, width - 1)
+        centre = (h - 1) * 60 + 30
         s = str(h)
-        for k, ch in enumerate(reversed(s)):
-            idx = pos - k
-            if 0 <= idx < width:
-                row[idx] = ch
+        start = centre - len(s) // 2
+        for k, ch in enumerate(s):
+            if 0 <= start + k < _WIDTH:
+                row[start + k] = ch
     labels = "[#444444]" + "".join(row) + "[/]"
 
-    return ("\n".join([bar] * _BAR_LINES)) + "\n" + labels
+    return bar + "\n" + labels
 
 
 class DayTimelineWidget(Static):
-    """Full-width 24-hour work/break timeline bar."""
+    """24-hour work/break timeline — 1 char per minute, auto-scrolls to now."""
 
     DEFAULT_CSS = """
     DayTimelineWidget {
@@ -69,6 +61,8 @@ class DayTimelineWidget(Static):
         width: 100%;
         padding: 0 1;
         background: #0f0f0f;
+        overflow-x: auto;
+        overflow-y: hidden;
     }
     """
 
@@ -78,9 +72,13 @@ class DayTimelineWidget(Static):
 
     def _draw(self) -> None:
         pomo_state.check_day_reset()
-        try:
-            width = max(24, self.content_size.width)
-        except Exception:
-            width = 72
         sessions, day_start = pomo_state.get_snapshot()
-        self.update(_render(sessions, day_start, width))
+        self.update(_render(sessions, day_start))
+        # Auto-scroll so current minute is centred in the visible area
+        try:
+            current_minute = int((time.time() - day_start) / 60.0)
+            visible = self.size.width
+            target_x = max(0, current_minute - visible // 2)
+            self.scroll_to(x=target_x, animate=False)
+        except Exception:
+            pass
