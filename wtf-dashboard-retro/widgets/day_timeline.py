@@ -120,7 +120,7 @@ class DayTimelineWidget(Static):
 
     DEFAULT_CSS = """
     DayTimelineWidget {
-        height: 4;
+        height: 1;
         width: 100%;
         padding: 0 1;
         background: #0f0f0f;
@@ -132,7 +132,7 @@ class DayTimelineWidget(Static):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self._detail_mode: bool = True  # start with 4-bar detail
+        self._detail_mode: bool = False  # start with single 24h bar
 
     def on_mount(self) -> None:
         self.set_interval(5, self._draw)
