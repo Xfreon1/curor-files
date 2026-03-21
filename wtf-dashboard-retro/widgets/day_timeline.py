@@ -19,10 +19,13 @@ def _render(sessions: list, day_start: float, width: int) -> str:
             continue
         s0 = max(s["start"], day_start)
         s1 = min(s["end"] or now, now)
-        if s1 <= s0:
+        duration = s1 - s0
+        if duration < 60:  # ignore sub-minute sessions
             continue
         c0 = int((s0 - day_start) / 86400.0 * width)
         c1 = min(int((s1 - day_start) / 86400.0 * width), elapsed - 1)
+        if c1 <= c0:  # guarantee at least 1 char for sessions >= 1 min
+            c1 = c0 + 1
         for i in range(max(0, c0), min(width, c1 + 1)):
             cells[i] = "w"
 
