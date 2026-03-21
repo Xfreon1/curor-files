@@ -1,0 +1,5 @@
+[ ] download reference duvet cover images
+[ ] Create duvet interours
+[ ] create seperated props
+[ ] learn about auto research
+[ ] learn about claude cowork
