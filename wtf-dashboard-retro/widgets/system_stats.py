@@ -198,10 +198,13 @@ class SystemStatsWidget(Static):
 
         lines = [
             f"[bold #888888]SYSTEM STATS[/]  {uptime}\n",
-            f"[#888888]CPU [/] [{pct_color(cpu)}]{cpu:5.1f}%[/] {pct_bar(cpu)}  {_temp(temps['cpu'])}  {cpu_spark}",
-            f"[#888888]GPU [/] [{pct_color(gpu)}]{gpu:5.1f}%[/] {pct_bar(gpu)}  {_temp(temps['gpu'])}  {gpu_spark}",
+            f"[#888888]CPU [/] [{pct_color(cpu)}]{cpu:5.1f}%[/] {pct_bar(cpu)}  {_temp(temps['cpu'])}",
+            f"     {cpu_spark}",
+            f"[#888888]GPU [/] [{pct_color(gpu)}]{gpu:5.1f}%[/] {pct_bar(gpu)}  {_temp(temps['gpu'])}",
+            f"     {gpu_spark}",
             f"[#888888]RAM [/] [{pct_color(ram_pct)}]{ram_pct:5.1f}%[/] {pct_bar(ram_pct)} "
-            f"[#666666]{ram.used/1e9:.1f}/{ram.total/1e9:.1f}GB[/]  {ram_spark}",
+            f"[#666666]{ram.used/1e9:.1f}/{ram.total/1e9:.1f}GB[/]",
+            f"     {ram_spark}",
             "",
         ]
 
@@ -210,8 +213,8 @@ class SystemStatsWidget(Static):
 
         lines.extend([
             "",
-            f"[#888888]NET [/] [#4ade80]↑[/] {_net_bar(sent)} [white]{fmt_bytes(sent)}[/]  {sent_spark}",
-            f"     [#f87171]↓[/] {_net_bar(recv)} [white]{fmt_bytes(recv)}[/]  {recv_spark}",
+            f"[#888888]NET [/] [#4ade80]↑[/] {_net_bar(sent)} [white]{fmt_bytes(sent)}[/]",
+            f"     [#f87171]↓[/] {_net_bar(recv)} [white]{fmt_bytes(recv)}[/]",
         ])
 
         self.app.call_from_thread(self.update, "\n".join(lines))

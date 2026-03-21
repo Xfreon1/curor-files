@@ -4,21 +4,21 @@ from config import WEATHER_API_KEY, WEATHER_CITIES
 
 
 _WEATHER_ICONS: dict[str, str] = {
-    "Clear":        "☀",
-    "Clouds":       "⛅",
-    "Rain":         "🌧",
-    "Drizzle":      "🌦",
-    "Thunderstorm": "⛈",
-    "Snow":         "❄",
-    "Mist":         "🌫",
-    "Fog":          "🌫",
-    "Haze":         "🌫",
-    "Smoke":        "🌫",
-    "Dust":         "🌫",
-    "Sand":         "🌫",
-    "Ash":          "🌫",
-    "Squall":       "🌬",
-    "Tornado":      "🌪",
+    "Clear":        "☀",   # U+2600
+    "Clouds":       "☁",   # U+2601
+    "Rain":         "☂",   # U+2602
+    "Drizzle":      "☂",   # U+2602
+    "Thunderstorm": "⚡",  # U+26A1
+    "Snow":         "❄",   # U+2744
+    "Mist":         "≈",   # U+2248
+    "Fog":          "≈",
+    "Haze":         "≈",
+    "Smoke":        "≈",
+    "Dust":         "≈",
+    "Sand":         "≈",
+    "Ash":          "≈",
+    "Squall":       "~",
+    "Tornado":      "~",
 }
 
 
