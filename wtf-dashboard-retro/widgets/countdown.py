@@ -152,8 +152,7 @@ class CountdownWidget(Widget):
             f"[#4ade80]WORK [/]  {_fmt(work)}\n"
             f"         [#666666]×{self._pomo_work_n} sessions[/]\n\n"
             f"[#f87171]BREAK[/]  {_fmt(brk)}\n\n"
-            f"[#888888]now:[/] {cur_label}\n"
-            f"     {cur_time}\n\n"
+            f"[#888888]now:[/] {cur_label} {cur_time}\n\n"
             "[#444444]p = reset log[/]"
         )
 
