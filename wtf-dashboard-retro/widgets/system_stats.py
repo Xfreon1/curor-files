@@ -4,6 +4,7 @@ import csv
 import io
 import time as _time
 import threading
+from collections import deque
 from textual.widgets import Static
 from config import LHM_URL
 from widgets.utils import pct_bar, pct_color, fmt_bytes
@@ -87,6 +88,31 @@ def _net_bar(bps: float, max_bps: float = 104_857_600, width: int = 14) -> str:
     return f"[#4ade80]{'█' * filled}[/][#2a2a2a]{'░' * (width - filled)}[/]"
 
 
+_SPARKS = "▁▂▃▄▅▆▇█"
+
+
+def _sparkline(vals: list, width: int = 16, max_val: float = 0.0) -> str:
+    """Render ASCII sparkline. max_val=0 means auto-scale to window max."""
+    if not vals:
+        return "[#333333]" + "·" * width + "[/]"
+    window = vals[-width:]
+    mx = max_val if max_val > 0 else max(max(window), 1)
+    pad = width - len(window)
+    chars = [_SPARKS[min(int(v / mx * 7), 7)] for v in window]
+    return "[#333333]" + " " * pad + "[/][#4ade80]" + "".join(chars) + "[/]"
+
+
+def _uptime_badge() -> str:
+    """Return color-coded uptime string."""
+    elapsed = _time.time() - psutil.boot_time()
+    days = int(elapsed // 86400)
+    hours = int((elapsed % 86400) // 3600)
+    mins = int((elapsed % 3600) // 60)
+    label = f"{days}d {hours}h" if days > 0 else f"{hours}h {mins}m"
+    color = "#4ade80" if days < 1 else ("#fbbf24" if days < 7 else "#f87171")
+    return f"[{color}]↑{label}[/]"
+
+
 
 
 class SystemStatsWidget(Static):
@@ -107,6 +133,11 @@ class SystemStatsWidget(Static):
     def on_mount(self) -> None:
         self._prev_net = psutil.net_io_counters()
         self._lock = threading.Lock()
+        self._cpu_hist: deque = deque(maxlen=30)
+        self._gpu_hist: deque = deque(maxlen=30)
+        self._ram_hist: deque = deque(maxlen=30)
+        self._sent_hist: deque = deque(maxlen=30)
+        self._recv_hist: deque = deque(maxlen=30)
         self.set_interval(2, self.refresh_stats)
         self.refresh_stats()
 
@@ -129,7 +160,7 @@ class SystemStatsWidget(Static):
             except (PermissionError, OSError):
                 pass
 
-        # Network with lock to protect _prev_net
+        # Network with lock to protect _prev_net and history deques
         net = psutil.net_io_counters()
         with self._lock:
             if self._prev_net:
@@ -138,6 +169,23 @@ class SystemStatsWidget(Static):
             else:
                 sent = recv = 0
             self._prev_net = net
+            self._cpu_hist.append(cpu)
+            self._gpu_hist.append(gpu)
+            self._ram_hist.append(ram.percent)
+            self._sent_hist.append(sent)
+            self._recv_hist.append(recv)
+            cpu_snap = list(self._cpu_hist)
+            gpu_snap = list(self._gpu_hist)
+            ram_snap = list(self._ram_hist)
+            sent_snap = list(self._sent_hist)
+            recv_snap = list(self._recv_hist)
+
+        cpu_spark = _sparkline(cpu_snap, max_val=100.0)
+        gpu_spark = _sparkline(gpu_snap, max_val=100.0)
+        ram_spark = _sparkline(ram_snap, max_val=100.0)
+        sent_spark = _sparkline(sent_snap)
+        recv_spark = _sparkline(recv_snap)
+        uptime = _uptime_badge()
 
         ram_pct = ram.percent
 
@@ -149,11 +197,11 @@ class SystemStatsWidget(Static):
             )
 
         lines = [
-            f"[bold #888888]SYSTEM STATS[/]\n",
-            f"[#888888]CPU [/] [{pct_color(cpu)}]{cpu:5.1f}%[/] {pct_bar(cpu)}  {_temp(temps['cpu'])}",
-            f"[#888888]GPU [/] [{pct_color(gpu)}]{gpu:5.1f}%[/] {pct_bar(gpu)}  {_temp(temps['gpu'])}",
+            f"[bold #888888]SYSTEM STATS[/]  {uptime}\n",
+            f"[#888888]CPU [/] [{pct_color(cpu)}]{cpu:5.1f}%[/] {pct_bar(cpu)}  {_temp(temps['cpu'])}  {cpu_spark}",
+            f"[#888888]GPU [/] [{pct_color(gpu)}]{gpu:5.1f}%[/] {pct_bar(gpu)}  {_temp(temps['gpu'])}  {gpu_spark}",
             f"[#888888]RAM [/] [{pct_color(ram_pct)}]{ram_pct:5.1f}%[/] {pct_bar(ram_pct)} "
-            f"[#666666]{ram.used/1e9:.1f}/{ram.total/1e9:.1f}GB[/]",
+            f"[#666666]{ram.used/1e9:.1f}/{ram.total/1e9:.1f}GB[/]  {ram_spark}",
             "",
         ]
 
@@ -162,8 +210,8 @@ class SystemStatsWidget(Static):
 
         lines.extend([
             "",
-            f"[#888888]NET [/] [#4ade80]↑[/] {_net_bar(sent)} [white]{fmt_bytes(sent)}[/]",
-            f"     [#f87171]↓[/] {_net_bar(recv)} [white]{fmt_bytes(recv)}[/]",
+            f"[#888888]NET [/] [#4ade80]↑[/] {_net_bar(sent)} [white]{fmt_bytes(sent)}[/]  {sent_spark}",
+            f"     [#f87171]↓[/] {_net_bar(recv)} [white]{fmt_bytes(recv)}[/]  {recv_spark}",
         ])
 
         self.app.call_from_thread(self.update, "\n".join(lines))

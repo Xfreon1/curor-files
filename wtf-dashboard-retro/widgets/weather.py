@@ -3,6 +3,25 @@ from textual.widgets import Static
 from config import WEATHER_API_KEY, WEATHER_CITIES
 
 
+_WEATHER_ICONS: dict[str, str] = {
+    "Clear":        "☀",
+    "Clouds":       "⛅",
+    "Rain":         "🌧",
+    "Drizzle":      "🌦",
+    "Thunderstorm": "⛈",
+    "Snow":         "❄",
+    "Mist":         "🌫",
+    "Fog":          "🌫",
+    "Haze":         "🌫",
+    "Smoke":        "🌫",
+    "Dust":         "🌫",
+    "Sand":         "🌫",
+    "Ash":          "🌫",
+    "Squall":       "🌬",
+    "Tornado":      "🌪",
+}
+
+
 class WeatherWidget(Static):
     """Displays weather for configured cities."""
 
@@ -47,15 +66,16 @@ class WeatherWidget(Static):
                 main = d.get("main", {})
                 temp = main.get("temp", 0)
                 weather_list = d.get("weather", [{}])
-                desc = (weather_list[0].get("description", "") if weather_list else "").capitalize()[:12]
+                weather_main = (weather_list[0].get("main", "") if weather_list else "")
+                icon = _WEATHER_ICONS.get(weather_main, "·")
                 humidity = main.get("humidity", 0)
                 wind = d.get("wind", {}).get("speed", 0)
                 lines.append(
                     f"[bold white]{name:<12}[/] "
                     f"[bold #4ade80]{temp:>5.1f}°[/] "
+                    f"{icon} "
                     f"[#666666]H:[/][white]{humidity}%[/] "
-                    f"[#666666]W:[/][white]{wind:.1f}[/] "
-                    f"[#888888]{desc}[/]"
+                    f"[#666666]W:[/][white]{wind:.1f}[/]"
                 )
             except (httpx.HTTPError, KeyError, TypeError) as e:
                 lines.append(f"[#f87171]{city.split(',')[0]}: error[/]")
