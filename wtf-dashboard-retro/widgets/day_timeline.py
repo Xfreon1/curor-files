@@ -6,7 +6,7 @@ import widgets.pomo_state as pomo_state
 _DETAIL_WIDTH = 1440  # 1 char = 1 minute
 
 
-# ── Renderers ─────────────────────────────────────────────────────────────────
+# ── Cell builders ─────────────────────────────────────────────────────────────
 
 def _build_cells_detail(sessions: list, day_start: float) -> list:
     now = time.time()
@@ -62,19 +62,9 @@ def _cells_to_bar(cells: list) -> str:
     return bar
 
 
-def _hour_labels_detail() -> str:
-    row = [" "] * _DETAIL_WIDTH
-    for h in range(0, 24):
-        pos = h * 60          # left edge of this hour's 60-char slot
-        row[pos] = "|"        # tick mark at the hour boundary
-        s = str(h + 1)        # label: 1-24
-        for k, ch in enumerate(s):
-            if pos + 1 + k < _DETAIL_WIDTH:
-                row[pos + 1 + k] = ch
-    return "[#888888]" + "".join(row) + "[/]"
+# ── Label builders ────────────────────────────────────────────────────────────
 
-
-def _hour_labels_overview(width: int) -> str:
+def _labels_overview(width: int) -> str:
     row = [" "] * width
     for h in range(1, 25):
         pos = min(int(h * width / 24) - 1, width - 1)
@@ -83,6 +73,22 @@ def _hour_labels_overview(width: int) -> str:
             idx = pos - k
             if 0 <= idx < width:
                 row[idx] = ch
+    return "[#888888]" + "".join(row) + "[/]"
+
+
+def _labels_detail_window(window_start: int, window_end: int) -> str:
+    """Render hour tick labels for the visible slice of the 1440-min bar."""
+    width = window_end - window_start
+    row = [" "] * width
+    for h in range(0, 24):
+        abs_pos = h * 60          # absolute minute position of this hour tick
+        rel = abs_pos - window_start
+        if 0 <= rel < width:
+            row[rel] = "|"
+            s = str(h + 1)
+            for k, ch in enumerate(s):
+                if rel + 1 + k < width:
+                    row[rel + 1 + k] = ch
     return "[#888888]" + "".join(row) + "[/]"
 
 
@@ -99,12 +105,10 @@ class DayTimelineWidget(Static):
 
     DEFAULT_CSS = """
     DayTimelineWidget {
-        height: 4;
+        height: 3;
         width: 100%;
         padding: 0 1;
         background: #0f0f0f;
-        overflow-x: auto;
-        overflow-y: hidden;
     }
     DayTimelineWidget:focus {
         background: #111111;
@@ -127,25 +131,24 @@ class DayTimelineWidget(Static):
         pomo_state.check_day_reset()
         sessions, day_start = pomo_state.get_snapshot()
 
+        try:
+            width = max(24, self.content_size.width)
+        except Exception:
+            width = 72
+
         if self._detail_mode:
-            cells  = _build_cells_detail(sessions, day_start)
-            bar    = _cells_to_bar(cells)
-            labels = _hour_labels_detail()
-            self.update(bar + "\n" + labels)
-            # Auto-scroll to keep current minute centred
-            try:
-                current_minute = int((time.time() - day_start) / 60.0)
-                target_x = max(0, current_minute - self.size.width // 2)
-                self.scroll_to(x=target_x, animate=False)
-            except Exception:
-                pass
+            current_minute = int((time.time() - day_start) / 60.0)
+            # Compute the visible window centred on current time
+            w_start = max(0, current_minute - width // 2)
+            w_end   = min(_DETAIL_WIDTH, w_start + width)
+            w_start = max(0, w_end - width)   # clamp if near end of day
+
+            all_cells = _build_cells_detail(sessions, day_start)
+            bar    = _cells_to_bar(all_cells[w_start:w_end])
+            labels = _labels_detail_window(w_start, w_end)
         else:
-            try:
-                width = max(24, self.content_size.width)
-            except Exception:
-                width = 72
             cells  = _build_cells_overview(sessions, day_start, width)
             bar    = _cells_to_bar(cells)
-            labels = _hour_labels_overview(width)
-            self.update(bar + "\n" + labels)
-            self.scroll_to(x=0, animate=False)
+            labels = _labels_overview(width)
+
+        self.update(bar + "\n" + labels)
