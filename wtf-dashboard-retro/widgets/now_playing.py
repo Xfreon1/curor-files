@@ -123,9 +123,9 @@ class NowPlayingWidget(Static):
         self._is_playing: bool = False
 
     def on_mount(self) -> None:
-        self.set_interval(0.5, self._fetch_smtc)
-        # Redraw progress bar every 0.5 seconds using interpolation
-        self.set_interval(0.5, self._redraw)
+        self.set_interval(0.3, self._fetch_smtc)
+        # Redraw progress bar every 0.3 seconds using interpolation
+        self.set_interval(0.3, self._redraw)
         self.run_worker(self._fetch_smtc_worker, thread=True)
 
     def _fetch_smtc(self) -> None:
@@ -167,7 +167,7 @@ class NowPlayingWidget(Static):
             )
 
     def _redraw(self) -> None:
-        """Redraw every 0.5s using interpolated position — no WinRT call."""
+        """Redraw every 0.3s using interpolated position — no WinRT call."""
         with self._lock:
             info = dict(self._last_info)
             last_pos = self._last_pos
