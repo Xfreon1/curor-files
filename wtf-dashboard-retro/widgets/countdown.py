@@ -49,7 +49,6 @@ class CountdownWidget(Widget):
         border: round #2a2a2a;
         padding: 0;
         overflow: hidden;
-        content-align: center middle;
     }
     CountdownWidget:focus, CountdownWidget:focus-within {
         border: round #4ade80;
@@ -57,7 +56,8 @@ class CountdownWidget(Widget):
     #cd-display {
         height: 1fr;
         padding: 1 2;
-        content-align: center middle;
+        content-align: center top;
+        overflow-y: auto;
     }
     #cd-input {
         height: 3;
