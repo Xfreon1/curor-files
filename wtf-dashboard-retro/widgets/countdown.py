@@ -2,6 +2,7 @@ import time
 from textual.app import ComposeResult
 from textual.widget import Widget
 from textual.widgets import Static, Input
+from textual.containers import Horizontal
 from textual.binding import Binding
 
 
@@ -37,10 +38,10 @@ class CountdownWidget(Widget):
     can_focus = True
 
     BINDINGS = [
-        Binding("s", "start_stop",  "Start/Stop", show=False),
-        Binding("r", "reset",       "Reset",      show=False),
-        Binding("e", "edit",        "Set Time",   show=False),
-        Binding("p", "reset_pomo",  "Reset Log",  show=False),
+        Binding("s", "start_stop", "Start/Stop", show=False),
+        Binding("r", "reset",      "Reset",      show=False),
+        Binding("e", "edit",       "Set Time",   show=False),
+        Binding("p", "reset_pomo", "Reset Log",  show=False),
     ]
 
     DEFAULT_CSS = """
@@ -53,11 +54,21 @@ class CountdownWidget(Widget):
     CountdownWidget:focus, CountdownWidget:focus-within {
         border: round #4ade80;
     }
-    #cd-display {
+    #cd-body {
         height: 1fr;
+    }
+    #cd-timer {
+        width: 1fr;
+        height: 100%;
         padding: 1 2;
-        content-align: center top;
-        overflow-y: auto;
+        content-align: center middle;
+    }
+    #cd-pomo {
+        width: 26;
+        height: 100%;
+        padding: 1 2;
+        border-left: solid #2a2a2a;
+        content-align: left top;
     }
     #cd-input {
         height: 3;
@@ -76,17 +87,22 @@ class CountdownWidget(Widget):
         self._running: bool = False
         self._last_tick: float = 0.0
         # Pomodoro session tracking
-        self._pomo_active: bool = False    # True once first started
-        self._pomo_is_work: bool = False   # current session type
+        self._pomo_active: bool = False
+        self._pomo_is_work: bool = False
         self._pomo_session_start: float = 0.0
-        self._pomo_work: float = 0.0       # accumulated work seconds
-        self._pomo_break: float = 0.0      # accumulated break seconds
-        self._pomo_work_n: int = 0         # completed work sessions
-        self._pomo_break_n: int = 0        # completed break sessions
+        self._pomo_work: float = 0.0
+        self._pomo_break: float = 0.0
+        self._pomo_work_n: int = 0
+        self._pomo_break_n: int = 0
 
     def compose(self) -> ComposeResult:
-        yield Static(id="cd-display")
-        yield Input(placeholder="e.g. 1:30  or  90  (h:mm or minutes) — Enter to set", id="cd-input")
+        with Horizontal(id="cd-body"):
+            yield Static(id="cd-timer")
+            yield Static(id="cd-pomo")
+        yield Input(
+            placeholder="e.g. 1:30  or  90  (h:mm or minutes) — Enter to set",
+            id="cd-input",
+        )
 
     def on_mount(self) -> None:
         self.set_interval(0.5, self._tick)
@@ -95,10 +111,8 @@ class CountdownWidget(Widget):
     # ── Pomodoro helpers ──────────────────────────────────────────────────
 
     def _pomo_on_start(self) -> None:
-        """Call when timer starts running → begin/resume WORK session."""
         now = time.monotonic()
         if self._pomo_active and not self._pomo_is_work:
-            # closing a BREAK session
             self._pomo_break += now - self._pomo_session_start
             self._pomo_break_n += 1
         self._pomo_active = True
@@ -106,7 +120,6 @@ class CountdownWidget(Widget):
         self._pomo_session_start = now
 
     def _pomo_on_stop(self) -> None:
-        """Call when timer pauses/ends → close WORK, open BREAK session."""
         if not self._pomo_active or not self._pomo_is_work:
             return
         now = time.monotonic()
@@ -115,12 +128,11 @@ class CountdownWidget(Widget):
         self._pomo_is_work = False
         self._pomo_session_start = now
 
-    def _pomo_report(self) -> str:
+    def _pomo_content(self) -> str:
         now = time.monotonic()
         work = self._pomo_work
-        brk = self._pomo_break
+        brk  = self._pomo_break
 
-        # Add live current session time
         if self._pomo_active:
             live = now - self._pomo_session_start
             if self._pomo_is_work:
@@ -129,16 +141,24 @@ class CountdownWidget(Widget):
                 brk += live
 
         if not self._pomo_active:
-            return "[#444444]s=start  p=reset log[/]"
+            return (
+                "[bold #888888]POMODORO[/]\n\n"
+                "[#444444]Start the timer\nto begin tracking.[/]\n\n"
+                "[#444444]p = reset log[/]"
+            )
 
         cur_label = "[#4ade80]WORK[/]" if self._pomo_is_work else "[#f87171]BREAK[/]"
-        cur_time = _fmt(now - self._pomo_session_start)
+        cur_time  = _fmt(now - self._pomo_session_start)
 
         return (
-            "[#2a2a2a]─────────────────────[/]\n"
-            f"[#4ade80]WORK [/]  {_fmt(work):<10} [#666666]×{self._pomo_work_n}[/]\n"
-            f"[#f87171]BREAK[/]  {_fmt(brk):<10} [#666666]×{self._pomo_break_n}[/]\n"
-            f"[#888888]now:[/] {cur_label}  {cur_time}"
+            "[bold #888888]POMODORO[/]\n\n"
+            f"[#4ade80]WORK [/]  {_fmt(work)}\n"
+            f"         [#666666]×{self._pomo_work_n} sessions[/]\n\n"
+            f"[#f87171]BREAK[/]  {_fmt(brk)}\n"
+            f"         [#666666]×{self._pomo_break_n} breaks[/]\n\n"
+            f"[#888888]now:[/] {cur_label}\n"
+            f"     {cur_time}\n\n"
+            "[#444444]p = reset log[/]"
         )
 
     # ── Timer core ────────────────────────────────────────────────────────
@@ -187,17 +207,17 @@ class CountdownWidget(Widget):
             status = "[#444444]──────[/]"
 
         hint = "[#444444]s=start/stop  r=reset  e=edit[/]"
-        pomo = self._pomo_report()
 
-        lines = (
+        timer_content = (
             f"[bold #888888]TIMER[/]\n\n"
             f"{status}\n\n"
             f"{time_str}"
             f"{bar_str}\n\n"
-            f"{hint}\n\n"
-            f"{pomo}"
+            f"{hint}"
         )
-        self.query_one("#cd-display", Static).update(lines)
+
+        self.query_one("#cd-timer", Static).update(timer_content)
+        self.query_one("#cd-pomo",  Static).update(self._pomo_content())
 
     # ── Actions ───────────────────────────────────────────────────────────
 
@@ -220,7 +240,6 @@ class CountdownWidget(Widget):
         self._refresh_display()
 
     def action_reset_pomo(self) -> None:
-        """Clear Pomodoro session log."""
         self._pomo_active = False
         self._pomo_is_work = False
         self._pomo_work = 0.0
