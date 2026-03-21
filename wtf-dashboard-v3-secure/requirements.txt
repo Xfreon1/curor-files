@@ -1,0 +1,13 @@
+textual>=0.89.0
+yfinance
+psutil
+httpx
+feedparser
+winmedia-controller
+pycaw
+comtypes
+wmi
+winrt-Windows.Media.Control
+winrt-Windows.Foundation
+winrt-Windows.Foundation.Collections
+tzdata

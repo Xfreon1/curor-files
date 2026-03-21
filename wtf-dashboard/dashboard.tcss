@@ -1,0 +1,218 @@
+/* ============================================================
+   WTF Dashboard — Textual CSS
+   ============================================================ */
+
+Screen {
+    background: #0f0f0f;
+}
+
+/* ============================================================
+   Screen 1 — Main
+   ============================================================ */
+
+#screen-main {
+    layout: vertical;
+    height: 100%;
+}
+
+#clocks-row {
+    height: 7;
+    width: 100%;
+}
+
+#main-middle {
+    layout: horizontal;
+    height: 1fr;
+}
+
+#main-bottom {
+    layout: horizontal;
+    height: 14;
+}
+
+#weather {
+    width: 1fr;
+    height: 100%;
+}
+
+#system-stats {
+    width: 1fr;
+    height: 100%;
+}
+
+#processes {
+    width: 1fr;
+    height: 100%;
+}
+
+#calendar {
+    width: 1fr;
+    height: 100%;
+}
+
+#todo {
+    width: 2fr;
+    height: 100%;
+}
+
+#countdown {
+    width: 1fr;
+    height: 100%;
+}
+
+#now-playing {
+    width: 1fr;
+    height: 100%;
+}
+
+/* ============================================================
+   Screen 2 — Markets
+   ============================================================ */
+
+#screen-markets {
+    layout: vertical;
+    height: 100%;
+}
+
+#indices {
+    height: 1fr;
+    width: 100%;
+}
+
+#sp500 {
+    height: 1fr;
+    width: 100%;
+}
+
+#crypto {
+    height: 100%;
+    width: 1fr;
+}
+
+/* ============================================================
+   Screen 3 — News
+   ============================================================ */
+
+#screen-news {
+    layout: vertical;
+    height: 100%;
+}
+
+#news-top {
+    layout: horizontal;
+    height: 1fr;
+}
+
+#news-bottom {
+    layout: horizontal;
+    height: 1fr;
+}
+
+#hackernews {
+    width: 1fr;
+    height: 100%;
+}
+
+#rss {
+    width: 1fr;
+    height: 100%;
+}
+
+#reddit {
+    width: 1fr;
+    height: 100%;
+}
+
+#command-output {
+    width: 1fr;
+    height: 100%;
+}
+
+/* ============================================================
+   Screen 2 — Markets bottom row
+   ============================================================ */
+
+#markets-bottom {
+    layout: horizontal;
+    height: 1fr;
+}
+
+#exchange-rates-markets {
+    width: 1fr;
+    height: 100%;
+}
+
+/* ============================================================
+   Screen 4 — Home Lab
+   ============================================================ */
+
+#screen-homelab {
+    layout: vertical;
+    height: 100%;
+}
+
+#homelab-top {
+    layout: horizontal;
+    height: 12;
+}
+
+#ip-vpn {
+    width: 1fr;
+    height: 100%;
+}
+
+#air-quality {
+    width: 1fr;
+    height: 100%;
+}
+
+#sunrise-sunset {
+    width: 1fr;
+    height: 100%;
+}
+
+#github-activity {
+    height: 1fr;
+    width: 100%;
+}
+
+/* ============================================================
+   Screen 5 — Finance
+   ============================================================ */
+
+#screen-finance {
+    layout: vertical;
+    height: 100%;
+}
+
+#finance-top {
+    layout: horizontal;
+    height: 1fr;
+}
+
+#exchange-rates-finance {
+    width: 1fr;
+    height: 100%;
+}
+
+#nordpool {
+    width: 1fr;
+    height: 100%;
+}
+
+#toggl-timer {
+    height: 10;
+    width: 100%;
+}
+
+/* ============================================================
+   Navigation footer
+   ============================================================ */
+
+#footer {
+    height: 1;
+    background: #1a1a1a;
+    color: #666666;
+    content-align: left middle;
+    padding: 0 2;
+}

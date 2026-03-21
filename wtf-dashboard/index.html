@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WTF Dashboard — Claude Code Study</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0f0f0f;
+      color: #e8e8e8;
+      font-family: 'Segoe UI', sans-serif;
+      min-height: 100vh;
+      padding: 40px 24px 80px;
+    }
+
+    /* ── Header ── */
+    .header {
+      max-width: 900px;
+      margin: 0 auto 40px;
+    }
+    .header h1 {
+      font-size: 28px;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: -0.02em;
+    }
+    .header p {
+      color: #666;
+      font-size: 14px;
+      margin-top: 6px;
+    }
+
+    /* ── Progress bar ── */
+    .progress-wrap {
+      max-width: 900px;
+      margin: 0 auto 36px;
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 12px;
+      padding: 20px 24px;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+    .progress-bar-track {
+      flex: 1;
+      height: 8px;
+      background: #2a2a2a;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      background: #4ade80;
+      border-radius: 4px;
+      transition: width 0.4s ease;
+    }
+    .progress-label {
+      font-size: 13px;
+      color: #888;
+      white-space: nowrap;
+    }
+    .progress-count {
+      font-size: 22px;
+      font-weight: 700;
+      color: #4ade80;
+      white-space: nowrap;
+    }
+
+    /* ── Phase tabs ── */
+    .phase-tabs {
+      max-width: 900px;
+      margin: 0 auto 28px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .phase-tab {
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: 1px solid #2a2a2a;
+      background: transparent;
+      color: #888;
+      font-size: 13px;
+      font-family: 'Segoe UI', sans-serif;
+      cursor: pointer;
+      transition: all 0.15s;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .phase-tab:hover { border-color: #4ade80; color: #e8e8e8; }
+    .phase-tab.active { background: #1e3a2a; border-color: #4ade80; color: #4ade80; }
+
+    /* ── Day cards ── */
+    .days {
+      max-width: 900px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .day-card {
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 16px;
+      overflow: hidden;
+      transition: border-color 0.15s;
+    }
+    .day-card:hover { border-color: #3a3a3a; }
+    .day-card.completed { border-color: #1e3a2a; }
+    .day-card.today { border-color: #4ade80; }
+
+    .day-header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 18px 24px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .day-number {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: #555;
+      text-transform: uppercase;
+      min-width: 42px;
+    }
+    .day-card.today .day-number { color: #4ade80; }
+
+    .day-date {
+      font-size: 12px;
+      color: #555;
+      min-width: 90px;
+    }
+    .day-card.today .day-date { color: #4ade80; }
+
+    .phase-badge {
+      font-size: 10px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+    .phase-foundation  { background: #1c2a3a; color: #60a5fa; }
+    .phase-productivity { background: #2a1e3a; color: #c084fc; }
+    .phase-automation  { background: #3a2a1a; color: #fb923c; }
+    .phase-advanced    { background: #1e3a2a; color: #4ade80; }
+
+    .day-title {
+      flex: 1;
+      font-size: 15px;
+      font-weight: 600;
+      color: #e8e8e8;
+    }
+    .day-card.completed .day-title { color: #555; }
+
+    .day-done-count {
+      font-size: 12px;
+      color: #666;
+      white-space: nowrap;
+    }
+    .day-done-count.all-done { color: #4ade80; }
+
+    .chevron {
+      color: #444;
+      font-size: 12px;
+      transition: transform 0.2s;
+    }
+    .day-card.open .chevron { transform: rotate(90deg); }
+
+    /* ── Day body ── */
+    .day-body {
+      display: none;
+      padding: 0 24px 20px;
+      border-top: 1px solid #232323;
+    }
+    .day-card.open .day-body { display: block; }
+
+    .section-label {
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #555;
+      margin: 16px 0 8px;
+    }
+
+    .task-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .task-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    .task-item label {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      cursor: pointer;
+      font-size: 14px;
+      color: #ccc;
+      line-height: 1.5;
+      flex: 1;
+    }
+    .task-item input[type="checkbox"] {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      border: 1.5px solid #3a3a3a;
+      border-radius: 4px;
+      background: #111;
+      flex-shrink: 0;
+      margin-top: 3px;
+      cursor: pointer;
+      transition: all 0.15s;
+      position: relative;
+    }
+    .task-item input[type="checkbox"]:checked {
+      background: #4ade80;
+      border-color: #4ade80;
+    }
+    .task-item input[type="checkbox"]:checked::after {
+      content: '✓';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 10px;
+      color: #0f0f0f;
+      font-weight: 700;
+    }
+    .task-item label.done { text-decoration: line-through; color: #444; }
+
+    .docs-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 4px;
+    }
+    .doc-pill {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: #222;
+      border: 1px solid #2e2e2e;
+      color: #888;
+    }
+
+    .goal-box {
+      background: #111;
+      border: 1px solid #2a2a2a;
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-size: 13px;
+      color: #888;
+      line-height: 1.5;
+      margin-top: 16px;
+    }
+    .goal-box strong { color: #4ade80; }
+
+    /* ── Today badge ── */
+    .today-badge {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: #4ade80;
+      color: #0f0f0f;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+    }
+
+    /* hidden filter */
+    .day-card.hidden { display: none; }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Claude Code Study Guide</h1>
+  <p>20-day plan · 2026-03-20 → 2026-04-08 · Beginner to Advanced</p>
+</div>
+
+<div class="progress-wrap">
+  <div class="progress-count" id="progressCount">0 / 100</div>
+  <div class="progress-bar-track">
+    <div class="progress-bar-fill" id="progressFill" style="width:0%"></div>
+  </div>
+  <div class="progress-label" id="progressLabel">tasks complete</div>
+</div>
+
+<div class="phase-tabs">
+  <button class="phase-tab active" onclick="filterPhase('all', this)">All Days</button>
+  <button class="phase-tab" onclick="filterPhase('Foundation', this)">Foundation</button>
+  <button class="phase-tab" onclick="filterPhase('Productivity', this)">Productivity</button>
+  <button class="phase-tab" onclick="filterPhase('Automation', this)">Automation</button>
+  <button class="phase-tab" onclick="filterPhase('Advanced', this)">Advanced</button>
+</div>
+
+<div class="days" id="days"></div>
+
+<script>
+const DAYS = [
+  {
+    day: 1, date: "2026-03-20", phase: "Foundation",
+    title: "Install & First Contact",
+    docs: ["overview", "quickstart", "setup"],
+    tasks: [
+      "Install Claude Code using the official installer",
+      "Run `claude` in an existing project directory",
+      "Ask Claude to explain what a file in your project does",
+      "Ask Claude to find all TODO comments in your project",
+      "Run `claude doctor` and read the output",
+      "Try `claude --version`"
+    ],
+    goal: "Claude Code is installed, you're logged in, and you've had your first real conversation with it about code."
+  },
+  {
+    day: 2, date: "2026-03-21", phase: "Foundation",
+    title: "The Interface & Controls",
+    docs: ["interactive-mode", "cli-reference", "keybindings", "terminal-config"],
+    tasks: [
+      "Set up Shift+Enter for multi-line input in your terminal",
+      "Try `/help` — read every command listed",
+      "Use `claude -p \"summarize this file\"` in non-interactive mode",
+      "Try `claude -c` to continue your last conversation",
+      "Enable vim mode with `/vim` and practice basic navigation",
+      "Run `/config` and explore the settings menu"
+    ],
+    goal: "You can navigate Claude Code's interface without thinking about it."
+  },
+  {
+    day: 3, date: "2026-03-22", phase: "Foundation",
+    title: "How It Thinks & Permissions",
+    docs: ["how-claude-code-works", "tools-reference", "permissions"],
+    tasks: [
+      "Watch what Claude asks permission for when editing a file",
+      "Add an allow rule in `.claude/settings.json`: `Bash(npm run *)`",
+      "Try `defaultMode: acceptEdits` — see how behavior changes",
+      "Deny a tool: add WebFetch to deny list, then try to fetch a URL",
+      "Run `/permissions` and read all current rules",
+      "Restore your defaults when done"
+    ],
+    goal: "You understand the permission system and can configure it to match your workflow."
+  },
+  {
+    day: 4, date: "2026-03-23", phase: "Foundation",
+    title: "Memory & Context",
+    docs: ["memory", "output-styles"],
+    tasks: [
+      "Create a `CLAUDE.md` with: project description, tech stack, conventions",
+      "Start a new session — confirm Claude reads your CLAUDE.md context",
+      "Create `~/.claude/CLAUDE.md` with your personal preferences",
+      "Ask Claude to remember a preference — check what it saves",
+      "Try the Explanatory output style via `/config` → Output style",
+      "Write a CLAUDE.md that saves you from repeating context every session"
+    ],
+    goal: "Claude knows your project context without you explaining it every time."
+  },
+  {
+    day: 5, date: "2026-03-24", phase: "Foundation",
+    title: "Settings & Configuration",
+    docs: ["settings", "model-config", "costs"],
+    tasks: [
+      "Open `~/.claude/settings.json` and explore what's inside",
+      "Set `autoUpdatesChannel` to `stable`",
+      "Pin a model in your project settings",
+      "Run `/usage` in a session and understand the output",
+      "Set `defaultMode: acceptEdits` and use it for a full session",
+      "Create `.claude/settings.json` with 2–3 useful project-level rules"
+    ],
+    goal: "You have a configured environment that fits your workflow."
+  },
+  {
+    day: 6, date: "2026-03-25", phase: "Productivity",
+    title: "Workflows & Best Practices",
+    docs: ["common-workflows", "best-practices"],
+    tasks: [
+      "Use Claude to write tests for a function in an existing project",
+      "Ask Claude to fix lint errors across a whole directory",
+      "Ask Claude to create a git commit with a meaningful message",
+      "Try: describe a feature → Claude plans → you review → Claude builds",
+      "Use Claude to resolve a merge conflict",
+      "Ask Claude to write release notes from recent git commits"
+    ],
+    goal: "You can hand off real development tasks to Claude and get useful results."
+  },
+  {
+    day: 7, date: "2026-03-26", phase: "Productivity",
+    title: "Git & Code Review",
+    docs: ["code-review", "github-actions", "checkpointing"],
+    tasks: [
+      "Pipe git diff into Claude: `git diff main --name-only | claude -p \"review for security\"`",
+      "Ask Claude to write a PR description for your current branch",
+      "Use `/checkpoint` to save state before a risky operation",
+      "Rewind to a checkpoint after Claude makes an unwanted change",
+      "Read through the GitHub Actions workflow YAML and understand each step",
+      "Set up automated code review on a test PR"
+    ],
+    goal: "Claude is a natural part of your git workflow."
+  },
+  {
+    day: 8, date: "2026-03-27", phase: "Productivity",
+    title: "Skills & Custom Commands",
+    docs: ["skills", "commands"],
+    tasks: [
+      "Create `~/.claude/skills/review-code/SKILL.md` — bugs, security, performance review",
+      "Test it with `/review-code` in a session",
+      "Create a project skill `.claude/skills/deploy-check/SKILL.md` with checklist",
+      "Use `$ARGUMENTS` in a skill to accept parameters",
+      "Create a skill with `disable-model-invocation: true`",
+      "Use the bundled `/batch` skill to make a consistent change across multiple files"
+    ],
+    goal: "You have at least 2 personal skills that save you real time."
+  },
+  {
+    day: 9, date: "2026-03-28", phase: "Productivity",
+    title: "Hooks",
+    docs: ["hooks-guide", "hooks"],
+    tasks: [
+      "Create a `PostToolUse` hook that logs every file Claude edits",
+      "Create a `PreToolUse` hook that blocks editing `.env` files",
+      "Create a `Stop` hook that sends a desktop notification when Claude finishes",
+      "Add a `SessionStart` hook that prints the current git branch",
+      "Test a hook that denies a tool call (exit code 2 with a message)",
+      "Add hooks to your `.claude/settings.json` and test them"
+    ],
+    goal: "You understand hooks and have at least one real hook in your workflow."
+  },
+  {
+    day: 10, date: "2026-03-29", phase: "Productivity",
+    title: "MCP — Model Context Protocol",
+    docs: ["mcp"],
+    tasks: [
+      "Add the filesystem MCP server to your `.mcp.json`",
+      "Add a web search MCP server (e.g. Brave Search)",
+      "Run `/mcp` and verify all servers are connected",
+      "Ask Claude to use an MCP tool to accomplish a task",
+      "Understand project `.mcp.json` vs user `~/.claude/.mcp.json`",
+      "Explore one more MCP server that fits your workflow (Puppeteer, GitHub, etc.)"
+    ],
+    goal: "Claude is connected to at least one external tool via MCP."
+  },
+  {
+    day: 11, date: "2026-03-30", phase: "Automation",
+    title: "Headless Mode & Scheduled Tasks",
+    docs: ["headless", "scheduled-tasks"],
+    tasks: [
+      "Run `claude -p \"review this file\" --output-format json < myfile.js`",
+      "Pipe logs through Claude: `tail -100 app.log | claude -p \"summarize errors\"`",
+      "Create a shell script that runs Claude on a file and saves output",
+      "Use `/loop 30m check if tests are passing`",
+      "Set a one-time reminder: \"in 20 minutes remind me to push the branch\"",
+      "Use `CronList` to see all active scheduled tasks"
+    ],
+    goal: "You can run Claude from scripts and set up recurring automated checks."
+  },
+  {
+    day: 12, date: "2026-03-31", phase: "Automation",
+    title: "Sub-Agents & Agent Teams",
+    docs: ["sub-agents", "agent-teams"],
+    tasks: [
+      "Create a read-only `code-reviewer` agent in `.claude/agents/`",
+      "Invoke it with `@\"code-reviewer (agent)\"` — verify it can't write files",
+      "Create a `debugger` agent with edit permissions",
+      "Have the main Claude delegate to your subagent for a task",
+      "Create an agent with `context: fork` for an isolated window",
+      "Run two agents on different parts of a codebase simultaneously"
+    ],
+    goal: "You have a 2-agent team where each agent has the right tools for its role."
+  },
+  {
+    day: 13, date: "2026-04-01", phase: "Automation",
+    title: "Plugins",
+    docs: ["plugins", "plugins-reference", "discover-plugins"],
+    tasks: [
+      "Convert your skills from Day 8 into a plugin (create `.claude-plugin/plugin.json`)",
+      "Test the plugin with `claude --plugin-dir ./my-plugin`",
+      "Add your Day 9 hooks to the plugin's `hooks/hooks.json`",
+      "Install a plugin from the community",
+      "Understand `strict: true` vs `strict: false` in plugin manifests",
+      "Add a subagent definition to your plugin"
+    ],
+    goal: "Your skills and hooks live in a plugin you can share or reuse across projects."
+  },
+  {
+    day: 14, date: "2026-04-02", phase: "Automation",
+    title: "Sandboxing & Security",
+    docs: ["sandboxing", "security"],
+    tasks: [
+      "Enable the sandbox with `/sandbox`",
+      "Test what Claude can and can't access inside the sandbox",
+      "Add a custom path to `sandbox.filesystem.allowWrite`",
+      "Add a domain to the sandbox network allowlist",
+      "Set `allowUnsandboxedCommands: false` and test the effect",
+      "Audit your permission rules — identify any that are too broad"
+    ],
+    goal: "You understand Claude's security model and have sandbox enabled for risky operations."
+  },
+  {
+    day: 15, date: "2026-04-03", phase: "Automation",
+    title: "IDE Integration",
+    docs: ["vs-code", "jetbrains"],
+    tasks: [
+      "Install the Claude Code VS Code extension",
+      "Open the panel, try Plan mode — review the plan before Claude executes",
+      "Use Option/Alt+K to insert a file+line reference into your prompt",
+      "Use `@browser` with the Chrome extension (if installed)",
+      "Try the Rewind/Checkpoint feature — fork a conversation",
+      "Set `initialPermissionMode: plan` in the extension settings"
+    ],
+    goal: "You work fluently in the VS Code extension, using Plan mode and checkpoints."
+  },
+  {
+    day: 16, date: "2026-04-04", phase: "Advanced",
+    title: "Plugin Marketplaces",
+    docs: ["plugin-marketplaces"],
+    tasks: [
+      "Create a local marketplace with a `.claude-plugin/marketplace.json`",
+      "Add your Day 13 plugin to the marketplace",
+      "Test: `/plugin marketplace add ./my-marketplace`",
+      "Install: `/plugin install myplugin@my-marketplace`",
+      "Add a second plugin (a simple skill) to the marketplace",
+      "Understand `strictKnownMarketplaces` for org-level control"
+    ],
+    goal: "You have a personal plugin marketplace with 2+ plugins, shareable via git."
+  },
+  {
+    day: 17, date: "2026-04-05", phase: "Advanced",
+    title: "Monitoring, Analytics & Cost",
+    docs: ["monitoring-usage", "analytics", "costs"],
+    tasks: [
+      "Enable OpenTelemetry export and inspect what metrics are emitted",
+      "Check the Claude Code Analytics dashboard (if on Teams/Enterprise)",
+      "Run `/usage` after a heavy session — understand the cost breakdown",
+      "Write a `PostToolUse` hook that logs cost data to a local file",
+      "Set up a cost warning notification via a hook",
+      "Review your token usage patterns and identify optimization opportunities"
+    ],
+    goal: "You know how to track, control, and optimize Claude Code usage and cost."
+  },
+  {
+    day: 18, date: "2026-04-06", phase: "Advanced",
+    title: "Enterprise Deployment",
+    docs: ["third-party-integrations", "server-managed-settings", "network-config", "devcontainer"],
+    tasks: [
+      "Write a hypothetical org policy JSON using managed settings format",
+      "Configure a `deny` list that blocks dangerous operations project-wide",
+      "Write a `devcontainer.json` that pre-installs Claude Code",
+      "Compare deployment options (Teams vs Bedrock vs Vertex vs Foundry)",
+      "Draft an org-wide standard `CLAUDE.md`",
+      "Document the full setup process as if onboarding a new team member"
+    ],
+    goal: "You could confidently set up Claude Code for a team of 10 developers."
+  },
+  {
+    day: 19, date: "2026-04-07", phase: "Advanced",
+    title: "Remote Control & Channels",
+    docs: ["remote-control", "channels", "claude-code-on-the-web", "slack"],
+    tasks: [
+      "Enable Remote Control: `/remote-control My Session`",
+      "Connect from your browser via the session URL or QR code",
+      "Try `claude.ai/code` in a browser",
+      "Read through the Slack integration setup",
+      "Understand what Channel webhooks enable (Telegram, Discord)",
+      "Set up Remote Control for all sessions via `/config`"
+    ],
+    goal: "You can start a task locally and access it remotely or delegate to a channel."
+  },
+  {
+    day: 20, date: "2026-04-08", phase: "Advanced",
+    title: "Build Something Real",
+    docs: [],
+    tasks: [
+      "Create a complete CLAUDE.md with project context, conventions, and guardrails",
+      "Build 2 custom skills specific to a real project's needs",
+      "Create 1 custom subagent with a specialized role",
+      "Set up 1 meaningful hook (notification, logging, or guard)",
+      "Connect at least one MCP tool relevant to the project",
+      "Configure permissions, sandbox, and package everything into a plugin"
+    ],
+    goal: "You have a production-grade Claude Code setup you built entirely yourself — skills, agents, hooks, MCP, and a distributable plugin."
+  }
+];
+
+const TODAY = new Date().toISOString().slice(0, 10);
+
+function phaseClass(phase) {
+  return 'phase-' + phase.toLowerCase();
+}
+
+function getStorage() {
+  try {
+    return JSON.parse(localStorage.getItem('cc_study') || '{}');
+  } catch { return {}; }
+}
+function saveStorage(data) {
+  localStorage.setItem('cc_study', JSON.stringify(data));
+}
+
+function toggleTask(dayIndex, taskIndex, el) {
+  const data = getStorage();
+  const key = `d${dayIndex}_t${taskIndex}`;
+  data[key] = el.checked;
+  saveStorage(data);
+  el.closest('label').classList.toggle('done', el.checked);
+  updateProgress();
+  updateDayCard(dayIndex);
+}
+
+function updateDayCard(dayIndex) {
+  const data = getStorage();
+  const d = DAYS[dayIndex];
+  const total = d.tasks.length;
+  const done = d.tasks.filter((_, ti) => data[`d${dayIndex}_t${ti}`]).length;
+  const countEl = document.getElementById(`day-count-${dayIndex}`);
+  if (countEl) {
+    countEl.textContent = `${done}/${total}`;
+    countEl.className = 'day-done-count' + (done === total ? ' all-done' : '');
+  }
+  const card = document.getElementById(`day-card-${dayIndex}`);
+  if (card) {
+    card.classList.toggle('completed', done === total);
+  }
+}
+
+function updateProgress() {
+  const data = getStorage();
+  let total = 0, done = 0;
+  DAYS.forEach((d, di) => {
+    d.tasks.forEach((_, ti) => {
+      total++;
+      if (data[`d${di}_t${ti}`]) done++;
+    });
+  });
+  const pct = total ? Math.round((done / total) * 100) : 0;
+  document.getElementById('progressCount').textContent = `${done} / ${total}`;
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('progressLabel').textContent = `tasks complete · ${pct}%`;
+}
+
+function toggleCard(idx) {
+  const card = document.getElementById(`day-card-${idx}`);
+  card.classList.toggle('open');
+}
+
+function filterPhase(phase, btn) {
+  document.querySelectorAll('.phase-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.day-card').forEach(card => {
+    if (phase === 'all') {
+      card.classList.remove('hidden');
+    } else {
+      const cardPhase = card.dataset.phase;
+      card.classList.toggle('hidden', cardPhase !== phase);
+    }
+  });
+}
+
+function render() {
+  const data = getStorage();
+  const container = document.getElementById('days');
+  container.innerHTML = '';
+
+  DAYS.forEach((d, di) => {
+    const isToday = d.date === TODAY;
+    const total = d.tasks.length;
+    const done = d.tasks.filter((_, ti) => data[`d${di}_t${ti}`]).length;
+    const allDone = done === total;
+
+    const card = document.createElement('div');
+    card.className = 'day-card' + (allDone ? ' completed' : '') + (isToday ? ' today' : '');
+    card.id = `day-card-${di}`;
+    card.dataset.phase = d.phase;
+
+    if (isToday) card.classList.add('open'); // auto-expand today
+
+    const docsHtml = d.docs.length
+      ? `<div class="section-label">Docs to read</div>
+         <div class="docs-pills">${d.docs.map(doc => `<span class="doc-pill">${doc}.md</span>`).join('')}</div>`
+      : '<div class="section-label" style="color:#555">Use the docs as reference today</div>';
+
+    const tasksHtml = d.tasks.map((task, ti) => {
+      const checked = data[`d${di}_t${ti}`] ? 'checked' : '';
+      const doneClass = checked ? 'done' : '';
+      return `<li class="task-item">
+        <label class="${doneClass}">
+          <input type="checkbox" ${checked} onchange="toggleTask(${di}, ${ti}, this)" />
+          ${task}
+        </label>
+      </li>`;
+    }).join('');
+
+    card.innerHTML = `
+      <div class="day-header" onclick="toggleCard(${di})">
+        <span class="day-number">Day ${d.day}</span>
+        <span class="day-date">${d.date}</span>
+        <span class="phase-badge phase-${d.phase.toLowerCase()}">${d.phase}</span>
+        <span class="day-title">${d.title}</span>
+        ${isToday ? '<span class="today-badge">TODAY</span>' : ''}
+        <span class="day-done-count${allDone ? ' all-done' : ''}" id="day-count-${di}">${done}/${total}</span>
+        <span class="chevron">▶</span>
+      </div>
+      <div class="day-body">
+        ${docsHtml}
+        <div class="section-label">Practice tasks</div>
+        <ul class="task-list">${tasksHtml}</ul>
+        <div class="goal-box"><strong>Goal:</strong> ${d.goal}</div>
+      </div>
+    `;
+
+    container.appendChild(card);
+  });
+
+  updateProgress();
+}
+
+render();
+</script>
+</body>
+</html>
