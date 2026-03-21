@@ -71,7 +71,7 @@ def _hour_labels_detail() -> str:
         for k, ch in enumerate(s):
             if pos + 1 + k < _DETAIL_WIDTH:
                 row[pos + 1 + k] = ch
-    return "[#444444]" + "".join(row) + "[/]"
+    return "[#888888]" + "".join(row) + "[/]"
 
 
 def _hour_labels_overview(width: int) -> str:
@@ -83,7 +83,7 @@ def _hour_labels_overview(width: int) -> str:
             idx = pos - k
             if 0 <= idx < width:
                 row[idx] = ch
-    return "[#444444]" + "".join(row) + "[/]"
+    return "[#888888]" + "".join(row) + "[/]"
 
 
 # ── Widget ────────────────────────────────────────────────────────────────────
@@ -99,7 +99,7 @@ class DayTimelineWidget(Static):
 
     DEFAULT_CSS = """
     DayTimelineWidget {
-        height: 3;
+        height: 4;
         width: 100%;
         padding: 0 1;
         background: #0f0f0f;
