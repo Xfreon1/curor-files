@@ -38,7 +38,7 @@ def _save_agenda(data: dict) -> None:
 
 
 class CalendarWidget(Widget):
-    """Month calendar on top + scrollable daily agenda below."""
+    """Month calendar + scrollable daily agenda in a single panel."""
 
     can_focus = True
 
@@ -59,14 +59,9 @@ class CalendarWidget(Widget):
     CalendarWidget:focus, CalendarWidget:focus-within {
         border: round #4ade80;
     }
-    #cal-top {
-        padding: 1 2 0 2;
-        height: 11;
-    }
-    #cal-agenda {
+    #cal-content {
         height: 1fr;
-        padding: 0 2 0 2;
-        overflow: hidden;
+        padding: 0 2;
     }
     #cal-input {
         height: 3;
@@ -84,20 +79,21 @@ class CalendarWidget(Widget):
         self._days: list[date] = []
         self._selected: int = 0
         self._scroll_offset: int = 0
-        self._visible_rows: int = 10
+        self._visible_rows: int = 5
         self._editing_key: str = ""
 
     def compose(self) -> ComposeResult:
-        yield Static(id="cal-top")
-        yield Static(id="cal-agenda")
+        yield Static(id="cal-content")
         yield Input(placeholder="Task for this day — Enter to save, Esc to cancel", id="cal-input")
 
     def on_mount(self) -> None:
         self._agenda = _load_agenda()
         self._build_days()
-        self.set_interval(60, self._refresh_cal)
-        self._refresh_cal()
-        self._refresh_agenda()
+        self.set_interval(60, self._refresh)
+        self.call_after_refresh(self._refresh)
+
+    def on_resize(self, event) -> None:
+        self._refresh()
 
     def _build_days(self) -> None:
         now = datetime.now()
@@ -109,22 +105,26 @@ class CalendarWidget(Widget):
                 self._selected = i
                 break
 
-    def _refresh_cal(self) -> None:
+    def _refresh(self) -> None:
         now = datetime.now()
-        cal = calendar.monthcalendar(now.year, now.month)
+        cal_weeks = calendar.monthcalendar(now.year, now.month)
         month_name = now.strftime("%B %Y").upper()
-        today = now.day
+        today = date.today()
+        today_day = now.day
+        focused = self.has_focus
 
-        lines = [f"[bold white]{month_name}[/]\n"]
+        lines = []
+
+        # Calendar grid — compact
+        lines.append(f"[bold white]{month_name}[/]")
         lines.append("[#888888]Mo Tu We Th Fr [#4ade80]Sa[/] [#f87171]Su[/][/]")
-        lines.append("[#2a2a2a]" + "─" * 21 + "[/]")
 
-        for week in cal:
+        for week in cal_weeks:
             row = []
             for i, day in enumerate(week):
                 if day == 0:
                     row.append("  ")
-                elif day == today:
+                elif day == today_day:
                     row.append(f"[bold #ffaf00]{day:2}[/]")
                 elif i == 5:
                     row.append(f"[#4ade80]{day:2}[/]")
@@ -134,24 +134,27 @@ class CalendarWidget(Widget):
                     row.append(f"[#e8e8e8]{day:2}[/]")
             lines.append(" ".join(row))
 
-        self.query_one("#cal-top", Static).update("\n".join(lines))
+        cal_lines = len(lines)
 
-    def _refresh_agenda(self) -> None:
-        today = date.today()
+        # Agenda header
+        hint = "e=edit d=clear" if focused else ""
+        lines.append(f"[#666666]AGENDA[/]  [#444444]{hint}[/]")
 
-        # Calculate visible rows from agenda panel height
-        total_h = self.size.height if self.size.height > 0 else 30
-        self._visible_rows = max(3, total_h - 13)  # 11 cal + 2 border/padding
+        # Calculate visible agenda rows
+        try:
+            content_h = self.size.height - 2  # subtract border
+        except Exception:
+            content_h = 20
 
-        # Keep scroll window around selection
+        # Reserve: cal_lines + 1 (agenda header) + 1 (scroll indicator)
+        agenda_avail = max(2, content_h - cal_lines - 2)
+        self._visible_rows = agenda_avail
+
+        # Keep scroll around selection
         if self._selected < self._scroll_offset:
             self._scroll_offset = self._selected
         elif self._selected >= self._scroll_offset + self._visible_rows:
             self._scroll_offset = self._selected - self._visible_rows + 1
-
-        focused = self.has_focus
-        header = "[#2a2a2a]──[/] [#666666]AGENDA[/]  [#444444]e=edit  d=clear[/]" if focused else "[#2a2a2a]──[/] [#666666]AGENDA[/]  [#444444]tab to focus[/]"
-        lines = [header]
 
         visible = self._days[self._scroll_offset: self._scroll_offset + self._visible_rows]
         for idx, d in enumerate(visible):
@@ -179,20 +182,20 @@ class CalendarWidget(Widget):
 
         # Scroll indicator
         if len(self._days) > self._visible_rows:
-            end = self._scroll_offset + self._visible_rows
-            lines.append(f"[#444444]  {self._scroll_offset+1}–{min(end, len(self._days))} of {len(self._days)}[/]")
+            end = min(self._scroll_offset + self._visible_rows, len(self._days))
+            lines.append(f"[#444444]  {self._scroll_offset+1}–{end} of {len(self._days)}[/]")
 
-        self.query_one("#cal-agenda", Static).update("\n".join(lines))
+        self.query_one("#cal-content", Static).update("\n".join(lines))
 
     def action_move_up(self) -> None:
         if self._selected > 0:
             self._selected -= 1
-            self._refresh_agenda()
+            self._refresh()
 
     def action_move_down(self) -> None:
         if self._selected < len(self._days) - 1:
             self._selected += 1
-            self._refresh_agenda()
+            self._refresh()
 
     def action_edit_day(self) -> None:
         if not self._days:
@@ -210,11 +213,10 @@ class CalendarWidget(Widget):
         key = self._days[self._selected].isoformat()
         self._agenda.pop(key, None)
         _save_agenda(self._agenda)
-        self._refresh_agenda()
+        self._refresh()
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
         text = event.value.strip()
-        # Escape Rich markup to prevent injection
         text = text.replace("[", r"\[")
         if text:
             self._agenda[self._editing_key] = text
@@ -225,7 +227,7 @@ class CalendarWidget(Widget):
         event.input.display = False
         self._editing_key = ""
         self.focus()
-        self._refresh_agenda()
+        self._refresh()
 
     def on_key(self, event) -> None:
         if event.key == "escape":
@@ -238,7 +240,7 @@ class CalendarWidget(Widget):
                 event.stop()
 
     def on_focus(self) -> None:
-        self._refresh_agenda()
+        self._refresh()
 
     def on_blur(self) -> None:
-        self._refresh_agenda()
+        self._refresh()
