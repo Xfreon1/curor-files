@@ -123,8 +123,7 @@ class NowPlayingWidget(Static):
         self._is_playing: bool = False
 
     def on_mount(self) -> None:
-        # Fetch full SMTC data every 5 seconds
-        self.set_interval(5, self._fetch_smtc)
+        self.set_interval(0.5, self._fetch_smtc)
         # Redraw progress bar every 0.5 seconds using interpolation
         self.set_interval(0.5, self._redraw)
         self.run_worker(self._fetch_smtc_worker, thread=True)
