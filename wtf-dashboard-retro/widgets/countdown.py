@@ -105,6 +105,10 @@ class CountdownWidget(Widget):
         )
 
     def on_mount(self) -> None:
+        # Break starts accumulating immediately from launch
+        self._pomo_active = True
+        self._pomo_is_work = False
+        self._pomo_session_start = time.monotonic()
         self.set_interval(0.5, self._tick)
         self._refresh_display()
 
@@ -140,13 +144,6 @@ class CountdownWidget(Widget):
             else:
                 brk += live
 
-        if not self._pomo_active:
-            return (
-                "[bold #888888]POMODORO[/]\n\n"
-                "[#444444]Start the timer\nto begin tracking.[/]\n\n"
-                "[#444444]p = reset log[/]"
-            )
-
         cur_label = "[#4ade80]WORK[/]" if self._pomo_is_work else "[#f87171]BREAK[/]"
         cur_time  = _fmt(now - self._pomo_session_start)
 
@@ -154,8 +151,7 @@ class CountdownWidget(Widget):
             "[bold #888888]POMODORO[/]\n\n"
             f"[#4ade80]WORK [/]  {_fmt(work)}\n"
             f"         [#666666]×{self._pomo_work_n} sessions[/]\n\n"
-            f"[#f87171]BREAK[/]  {_fmt(brk)}\n"
-            f"         [#666666]×{self._pomo_break_n} breaks[/]\n\n"
+            f"[#f87171]BREAK[/]  {_fmt(brk)}\n\n"
             f"[#888888]now:[/] {cur_label}\n"
             f"     {cur_time}\n\n"
             "[#444444]p = reset log[/]"
