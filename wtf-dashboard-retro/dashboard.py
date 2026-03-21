@@ -30,6 +30,7 @@ from widgets.sunrise_sunset import SunriseSunsetWidget
 from widgets.github_activity import GitHubActivityWidget
 from widgets.nordpool import NordpoolWidget
 from widgets.toggl_timer import TogglTimerWidget
+from widgets.day_timeline import DayTimelineWidget
 
 
 # ─────────────────────────────────────────────
@@ -40,6 +41,7 @@ class MainScreen(Screen):
     def compose(self) -> ComposeResult:
         with Vertical(id="screen-main"):
             yield ClocksWidget(id="clocks-row")
+            yield DayTimelineWidget(id="day-timeline")
             with Horizontal(id="main-middle"):
                 yield WeatherWidget(id="weather")
                 yield SystemStatsWidget(id="system-stats")
