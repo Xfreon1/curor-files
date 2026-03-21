@@ -1,9 +1,12 @@
 import time
+from datetime import datetime, date
 from textual.app import ComposeResult
 from textual.widget import Widget
 from textual.widgets import Static, Input
 from textual.containers import Horizontal
 from textual.binding import Binding
+
+_BAR_HEIGHT = 3   # how many terminal lines tall the timeline bar is
 
 
 def _timer_bar(remaining: float, total: float, width: int = 20) -> str:
@@ -11,12 +14,7 @@ def _timer_bar(remaining: float, total: float, width: int = 20) -> str:
         return ""
     ratio = max(0.0, remaining / total)
     filled = int(ratio * width)
-    if ratio > 0.5:
-        color = "#4ade80"
-    elif ratio > 0.2:
-        color = "#fbbf24"
-    else:
-        color = "#f87171"
+    color = "#4ade80" if ratio > 0.5 else ("#f87171" if ratio <= 0.2 else "#fbbf24")
     return f"[{color}]{'█' * filled}[/][#2a2a2a]{'░' * (width - filled)}[/]"
 
 
@@ -32,8 +30,48 @@ def _fmt(seconds: float) -> str:
     return f"{s}s"
 
 
+def _render_timeline(sessions: list, day_start: float, width: int) -> str:
+    """Render a full-day timeline bar. Red=break, green=work."""
+    now = time.time()
+    cells = ["b"] * width  # 'w' or 'b'
+
+    for s in sessions:
+        if s["type"] != "work":
+            continue
+        s_start = max(s["start"], day_start)
+        s_end   = min(s["end"] or now, now)
+        if s_end <= s_start:
+            continue
+        day_secs = 86400.0
+        c0 = int((s_start - day_start) / day_secs * width)
+        c1 = int((s_end   - day_start) / day_secs * width)
+        for i in range(max(0, c0), min(width, c1 + 1)):
+            cells[i] = "w"
+
+    # RLE → Rich markup with background colors
+    bar = ""
+    i = 0
+    while i < width:
+        c = cells[i]
+        j = i
+        while j < width and cells[j] == c:
+            j += 1
+        color = "#4ade80" if c == "w" else "#f87171"
+        bar += f"[on {color}]{' ' * (j - i)}[/]"
+        i = j
+
+    row = "\n".join([bar] * _BAR_HEIGHT)
+    labels = "".join(f"{h:>3}" for h in range(1, 25))  # 72 chars for width=72
+    # Scale labels to actual width
+    if width != 72:
+        labels = "".join(
+            f"{h:{max(1, width // 24)}}" for h in range(1, 25)
+        )
+    return row + f"\n[#444444]{labels}[/]"
+
+
 class CountdownWidget(Widget):
-    """Countdown timer with Pomodoro work/break session tracking."""
+    """Countdown timer with Pomodoro tracking and daily work/break timeline."""
 
     can_focus = True
 
@@ -70,6 +108,11 @@ class CountdownWidget(Widget):
         border-left: solid #2a2a2a;
         content-align: left top;
     }
+    #cd-bar {
+        height: 5;
+        padding: 0 1;
+        overflow: hidden;
+    }
     #cd-input {
         height: 3;
         margin: 0 1 1 1;
@@ -86,79 +129,99 @@ class CountdownWidget(Widget):
         self._remaining: float = 0.0
         self._running: bool = False
         self._last_tick: float = 0.0
-        # Pomodoro session tracking
-        self._pomo_active: bool = False
-        self._pomo_is_work: bool = False
-        self._pomo_session_start: float = 0.0
-        self._pomo_work: float = 0.0
-        self._pomo_break: float = 0.0
-        self._pomo_work_n: int = 0
-        self._pomo_break_n: int = 0
+        # Timeline session log
+        self._timeline: list[dict] = []
+        self._current_day: date = date.today()
+        self._day_start: float = 0.0
 
     def compose(self) -> ComposeResult:
         with Horizontal(id="cd-body"):
             yield Static(id="cd-timer")
             yield Static(id="cd-pomo")
+        yield Static(id="cd-bar")
         yield Input(
             placeholder="e.g. 1:30  or  90  (h:mm or minutes) — Enter to set",
             id="cd-input",
         )
 
     def on_mount(self) -> None:
-        # Break starts accumulating immediately from launch
-        self._pomo_active = True
-        self._pomo_is_work = False
-        self._pomo_session_start = time.monotonic()
+        today = date.today()
+        self._current_day = today
+        self._day_start = datetime.combine(today, datetime.min.time()).timestamp()
+        # Start a break session from launch
+        self._timeline = [{"type": "break", "start": time.time(), "end": None}]
         self.set_interval(0.5, self._tick)
         self._refresh_display()
 
-    # ── Pomodoro helpers ──────────────────────────────────────────────────
+    # ── Session helpers ───────────────────────────────────────────────────
 
-    def _pomo_on_start(self) -> None:
-        now = time.monotonic()
-        if self._pomo_active and not self._pomo_is_work:
-            self._pomo_break += now - self._pomo_session_start
-            self._pomo_break_n += 1
-        self._pomo_active = True
-        self._pomo_is_work = True
-        self._pomo_session_start = now
+    def _open_session(self, session_type: str) -> None:
+        now = time.time()
+        if self._timeline and self._timeline[-1]["end"] is None:
+            self._timeline[-1]["end"] = now
+        self._timeline.append({"type": session_type, "start": now, "end": None})
 
-    def _pomo_on_stop(self) -> None:
-        if not self._pomo_active or not self._pomo_is_work:
-            return
-        now = time.monotonic()
-        self._pomo_work += now - self._pomo_session_start
-        self._pomo_work_n += 1
-        self._pomo_is_work = False
-        self._pomo_session_start = now
+    def _current_type(self) -> str:
+        if self._timeline and self._timeline[-1]["end"] is None:
+            return self._timeline[-1]["type"]
+        return "break"
+
+    def _totals(self) -> tuple[float, float, int]:
+        """Return (work_secs, break_secs, completed_work_sessions)."""
+        now = time.time()
+        work = break_ = 0.0
+        work_n = 0
+        for s in self._timeline:
+            dur = max(0.0, (s["end"] or now) - s["start"])
+            if s["type"] == "work":
+                work += dur
+                if s["end"] is not None:
+                    work_n += 1
+            else:
+                break_ += dur
+        return work, break_, work_n
+
+    def _check_day_reset(self) -> None:
+        today = date.today()
+        if today != self._current_day:
+            self._current_day = today
+            self._day_start = datetime.combine(today, datetime.min.time()).timestamp()
+            cur = self._current_type()
+            self._timeline = [{"type": cur, "start": time.time(), "end": None}]
+
+    # ── Pomodoro panel content ────────────────────────────────────────────
 
     def _pomo_content(self) -> str:
-        now = time.monotonic()
-        work = self._pomo_work
-        brk  = self._pomo_break
-
-        if self._pomo_active:
-            live = now - self._pomo_session_start
-            if self._pomo_is_work:
-                work += live
-            else:
-                brk += live
-
-        cur_label = "[#4ade80]WORK[/]" if self._pomo_is_work else "[#f87171]BREAK[/]"
-        cur_time  = _fmt(now - self._pomo_session_start)
+        work, brk, work_n = self._totals()
+        cur = self._current_type()
+        cur_start = self._timeline[-1]["start"] if self._timeline else time.time()
+        cur_label = "[#4ade80]WORK[/]" if cur == "work" else "[#f87171]BREAK[/]"
+        cur_time  = _fmt(time.time() - cur_start)
 
         return (
             "[bold #888888]POMODORO[/]\n\n"
             f"[#4ade80]WORK [/]  {_fmt(work)}\n"
-            f"         [#666666]×{self._pomo_work_n} sessions[/]\n\n"
+            f"         [#666666]×{work_n} sessions[/]\n\n"
             f"[#f87171]BREAK[/]  {_fmt(brk)}\n\n"
             f"[#888888]now:[/] {cur_label} {cur_time}\n\n"
             "[#444444]p = reset log[/]"
         )
 
+    # ── Timeline bar ──────────────────────────────────────────────────────
+
+    def _bar_content(self) -> str:
+        try:
+            width = self.query_one("#cd-bar", Static).content_size.width
+            if width < 24:
+                width = 72
+        except Exception:
+            width = 72
+        return _render_timeline(self._timeline, self._day_start, width)
+
     # ── Timer core ────────────────────────────────────────────────────────
 
     def _tick(self) -> None:
+        self._check_day_reset()
         if self._running and self._remaining > 0:
             now = time.monotonic()
             elapsed = now - self._last_tick
@@ -166,7 +229,7 @@ class CountdownWidget(Widget):
             self._remaining = max(0.0, self._remaining - elapsed)
             if self._remaining <= 0:
                 self._running = False
-                self._pomo_on_stop()
+                self._open_session("break")
         self._refresh_display()
 
     def _refresh_display(self) -> None:
@@ -202,16 +265,15 @@ class CountdownWidget(Widget):
 
         hint = "[#444444]s=start/stop  r=reset  e=edit[/]"
 
-        timer_content = (
+        self.query_one("#cd-timer", Static).update(
             f"[bold #888888]TIMER[/]\n\n"
             f"{status}\n\n"
             f"{time_str}"
             f"{bar_str}\n\n"
             f"{hint}"
         )
-
-        self.query_one("#cd-timer", Static).update(timer_content)
-        self.query_one("#cd-pomo",  Static).update(self._pomo_content())
+        self.query_one("#cd-pomo", Static).update(self._pomo_content())
+        self.query_one("#cd-bar",  Static).update(self._bar_content())
 
     # ── Actions ───────────────────────────────────────────────────────────
 
@@ -221,26 +283,21 @@ class CountdownWidget(Widget):
         self._running = not self._running
         if self._running:
             self._last_tick = time.monotonic()
-            self._pomo_on_start()
+            self._open_session("work")
         else:
-            self._pomo_on_stop()
+            self._open_session("break")
         self._refresh_display()
 
     def action_reset(self) -> None:
         if self._running:
-            self._pomo_on_stop()
+            self._open_session("break")
         self._remaining = self._total
         self._running = False
         self._refresh_display()
 
     def action_reset_pomo(self) -> None:
-        self._pomo_active = False
-        self._pomo_is_work = False
-        self._pomo_work = 0.0
-        self._pomo_break = 0.0
-        self._pomo_work_n = 0
-        self._pomo_break_n = 0
-        self._pomo_session_start = 0.0
+        cur = self._current_type()
+        self._timeline = [{"type": cur, "start": time.time(), "end": None}]
         self._refresh_display()
 
     def action_edit(self) -> None:
@@ -253,7 +310,7 @@ class CountdownWidget(Widget):
         seconds = self._parse_time(text)
         if seconds and seconds > 0:
             if self._running:
-                self._pomo_on_stop()
+                self._open_session("break")
             self._total = float(seconds)
             self._remaining = float(seconds)
             self._running = False
@@ -273,7 +330,6 @@ class CountdownWidget(Widget):
 
     @staticmethod
     def _parse_time(text: str) -> int | None:
-        """Parse '1:30' → 5400s, '90' → 5400s, '1:30:00' → 5400s."""
         try:
             parts = text.split(":")
             if len(parts) == 1:
