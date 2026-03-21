@@ -105,7 +105,7 @@ class DayTimelineWidget(Static):
 
     DEFAULT_CSS = """
     DayTimelineWidget {
-        height: 3;
+        height: 4;
         width: 100%;
         padding: 0 1;
         background: #0f0f0f;
@@ -132,7 +132,7 @@ class DayTimelineWidget(Static):
         sessions, day_start = pomo_state.get_snapshot()
 
         try:
-            width = max(24, self.content_size.width)
+            width = max(24, self.content_region.width)
         except Exception:
             width = 72
 
