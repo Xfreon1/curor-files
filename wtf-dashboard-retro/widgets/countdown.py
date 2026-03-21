@@ -160,15 +160,14 @@ class CountdownWidget(Widget):
     # ── Timer core ────────────────────────────────────────────────────────
 
     def _tick(self) -> None:
-        if not self._running or self._remaining <= 0:
-            return
-        now = time.monotonic()
-        elapsed = now - self._last_tick
-        self._last_tick = now
-        self._remaining = max(0.0, self._remaining - elapsed)
-        if self._remaining <= 0:
-            self._running = False
-            self._pomo_on_stop()
+        if self._running and self._remaining > 0:
+            now = time.monotonic()
+            elapsed = now - self._last_tick
+            self._last_tick = now
+            self._remaining = max(0.0, self._remaining - elapsed)
+            if self._remaining <= 0:
+                self._running = False
+                self._pomo_on_stop()
         self._refresh_display()
 
     def _refresh_display(self) -> None:
