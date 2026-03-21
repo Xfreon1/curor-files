@@ -107,9 +107,10 @@ class CountdownWidget(Widget):
 
         return (
             "[bold #888888]POMODORO[/]\n\n"
-            f"[#4ade80]WORK [/]  {_fmt(work)}\n\n"
+            f"[#4ade80]WORK [/]  {_fmt(work)}\n"
+            f"[#666666]{work_n} sessions[/]\n\n"
             f"[#f87171]BREAK[/]  {_fmt(brk)}\n\n"
-            f"[#888888]now:[/] {cur_label} {cur_time}  [#666666]{work_n}[/]\n\n"
+            f"[#888888]now:[/] {cur_label} {cur_time}\n\n"
             "[#444444]p = reset log[/]"
         )
 
