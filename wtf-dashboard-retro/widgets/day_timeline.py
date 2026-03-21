@@ -121,6 +121,9 @@ class DayTimelineWidget(Static):
 
     def on_mount(self) -> None:
         self.set_interval(5, self._draw)
+        self.call_after_refresh(self._draw)  # wait for layout before first draw
+
+    def on_resize(self, event) -> None:
         self._draw()
 
     def action_toggle_mode(self) -> None:
@@ -132,7 +135,9 @@ class DayTimelineWidget(Static):
         sessions, day_start = pomo_state.get_snapshot()
 
         try:
-            width = max(24, self.content_region.width)
+            width = self.size.width - 2  # subtract horizontal padding (0 1)
+            if width < 24:
+                width = 72
         except Exception:
             width = 72
 
