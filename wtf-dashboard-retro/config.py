@@ -24,7 +24,7 @@ COUNTDOWN_DATE = "2026-12-31"
 COUNTDOWN_LABEL = "Year End"
 
 # Timer alert sound — path to a .wav file, or "" for no sound
-TIMER_SOUND = ""  # e.g. r"C:\Users\Arturs\Music\alert.wav"
+TIMER_SOUND = os.path.join(os.path.dirname(__file__), "timer sound", "ts.wav")
 
 # News
 RSS_URL = "https://feeds.feedburner.com/TechCrunch"
