@@ -116,6 +116,7 @@ class FinanceScreen(Screen):
 class Dashboard(App):
     CSS_PATH = "dashboard.tcss"
     TITLE = "WTF Dashboard"
+    SHOW_CURSOR = False
 
     BINDINGS = [
         Binding("1", "switch_screen('main')",     "Main",     show=True),
