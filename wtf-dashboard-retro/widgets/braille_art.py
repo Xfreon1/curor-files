@@ -34,14 +34,19 @@ def image_to_braille(image_bytes: bytes, width: int = 16, height: int = 8) -> li
         # Auto-contrast: stretch histogram to use full 0-255 range
         img = ImageOps.autocontrast(img, cutoff=1)
 
-        # Resize with high-quality resampling
-        img = img.resize((width * 2, height * 4), Image.LANCZOS)
+        # Supersample: resize to 4x the braille grid, process, then downsample
+        # This gives the dithering algorithm 16x more pixel data to work with
+        scale = 4
+        img = img.resize((width * 2 * scale, height * 4 * scale), Image.LANCZOS)
 
         # Sharpen edges so detail survives dithering
         img = img.filter(ImageFilter.SHARPEN)
 
         # Boost contrast slightly for crisper dots
         img = ImageEnhance.Contrast(img).enhance(1.4)
+
+        # Downsample to final braille grid size
+        img = img.resize((width * 2, height * 4), Image.LANCZOS)
 
         # Floyd-Steinberg dithering to 1-bit
         img = img.convert("1")
