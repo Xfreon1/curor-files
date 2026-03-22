@@ -159,21 +159,12 @@ def _build_month(history: dict, width: int) -> str:
 class DayTimelineWidget(Static):
     """24-hour work/break timeline. t = toggle overview / detail / month."""
 
-    can_focus = True
-
-    BINDINGS = [
-        Binding("t", "toggle_mode", "Toggle view", show=False),
-    ]
-
     DEFAULT_CSS = """
     DayTimelineWidget {
         height: 1;
         width: 100%;
         padding: 0 1;
         background: #0f0f0f;
-    }
-    DayTimelineWidget:focus {
-        background: #111111;
     }
     """
 

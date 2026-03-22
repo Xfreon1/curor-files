@@ -126,6 +126,7 @@ class Dashboard(App):
         Binding("5", "switch_screen('finance')",  "Finance",  show=True),
         Binding("q", "quit",                      "Quit",     show=True),
         Binding("a", "add_todo",                  "Add Todo", show=False),
+        Binding("t", "toggle_timeline",           "Timeline", show=False),
     ]
 
     SCREENS = {
@@ -149,6 +150,15 @@ class Dashboard(App):
         try:
             todo = self.screen.query_one(TodoWidget)
             todo.action_add_item()
+        except Exception:
+            pass
+
+    def action_toggle_timeline(self) -> None:
+        """Toggle the day timeline view mode."""
+        try:
+            from widgets.day_timeline import DayTimelineWidget
+            tl = self.screen.query_one(DayTimelineWidget)
+            tl.action_toggle_mode()
         except Exception:
             pass
 
