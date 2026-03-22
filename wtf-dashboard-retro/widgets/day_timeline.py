@@ -139,11 +139,11 @@ def _build_month(history: dict, width: int) -> str:
         bar = f"[#4ade80]{'█' * filled}[/][#333333]{'░' * (bar_w - filled)}[/]"
 
         if d == today.day:
-            entry = f"[bold #ffaf00]{d:2}[/] {bar} [#4ade80]{pct:3d}%[/]"
+            entry = f"[bold #ffaf00]{d:2}[/] [#4ade80]{pct:3d}%[/] {bar}"
         elif date(today.year, today.month, d) > today:
-            entry = f"[#444444]{d:2} {'·' * bar_w}    [/]"
+            entry = f"[#444444]{d:2}      {'·' * bar_w}[/]"
         else:
-            entry = f"[#888888]{d:2}[/] {bar} [#666666]{pct:3d}%[/]"
+            entry = f"[#888888]{d:2}[/] [#666666]{pct:3d}%[/] {bar}"
 
         row.append(entry)
         if len(row) >= cols:
