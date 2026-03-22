@@ -73,13 +73,26 @@ def _get_media_sync() -> dict:
             if end > 0:
                 result["position"] = pos
                 result["duration"] = end
-                # last_updated_time = when the app actually set this position value
                 try:
                     import datetime
-                    lut = timeline.last_updated_time  # datetime.datetime UTC
+                    lut = timeline.last_updated_time
                     result["position_set_at"] = lut.timestamp()
                 except Exception:
                     pass
+        except Exception:
+            pass
+
+        # Extract album art thumbnail
+        try:
+            thumb_ref = props.thumbnail
+            if thumb_ref is not None:
+                from winrt.windows.storage.streams import Buffer, DataReader
+                stream = await thumb_ref.open_read_async()
+                size = stream.size
+                buf = Buffer(size)
+                await stream.read_async(buf, size, 0)
+                reader = DataReader.from_buffer(buf)
+                result["thumbnail_bytes"] = bytes(bytearray(reader.read_bytes(size)))
         except Exception:
             pass
 
@@ -121,10 +134,12 @@ class NowPlayingWidget(Static):
         self._last_pos_time: float = 0.0
         self._last_duration: float | None = None
         self._is_playing: bool = False
+        # Album art cache
+        self._art_cache_key: str = ""
+        self._art_lines: list[str] = []
 
     def on_mount(self) -> None:
         self.set_interval(0.3, self._fetch_smtc)
-        # Redraw progress bar every 0.3 seconds using interpolation
         self.set_interval(0.3, self._redraw)
         self.run_worker(self._fetch_smtc_worker, thread=True)
 
@@ -136,6 +151,22 @@ class NowPlayingWidget(Static):
             info = _get_media_sync()
             level, muted = _get_volume()
             status_code = info.get("status", 0)
+
+            # Process album art — only when track changes
+            cache_key = f"{info.get('title', '')}|{info.get('artist', '')}"
+            thumb_bytes = info.pop("thumbnail_bytes", None)
+
+            if cache_key and cache_key != self._art_cache_key:
+                art_lines = []
+                if thumb_bytes:
+                    try:
+                        from widgets.braille_art import image_to_braille
+                        art_lines = image_to_braille(thumb_bytes, width=16, height=8)
+                    except Exception:
+                        pass
+                with self._lock:
+                    self._art_lines = art_lines
+                    self._art_cache_key = cache_key
 
             with self._lock:
                 self._last_info = info
@@ -176,6 +207,7 @@ class NowPlayingWidget(Static):
             is_playing = self._is_playing
             level = self._last_level
             muted = self._last_muted
+            art_lines = list(self._art_lines)
 
         if last_pos is not None and last_duration is not None:
             if is_playing:
@@ -185,33 +217,53 @@ class NowPlayingWidget(Static):
                 pos = last_pos
             info["position"] = pos
             info["duration"] = last_duration
-        self._draw(info, level, muted)
+        self._draw(info, level, muted, art_lines)
 
-    def _draw(self, info: dict, level: int, muted: bool) -> None:
+    def _draw(self, info: dict, level: int, muted: bool, art_lines: list[str] | None = None) -> None:
         vol_bar = _vol_bar(level, muted)
+
+        # Build text lines
+        text_lines = []
+        text_lines.append("[bold #888888]NOW PLAYING[/]")
+        text_lines.append("")
+
         if not info:
-            self.update(
-                f"[bold #888888]NOW PLAYING[/]\n\n"
-                f"[#666666]Nothing playing[/]\n\n"
-                f"[#888888]VOL[/] {vol_bar}"
-            )
-            return
+            text_lines.append("[#666666]Nothing playing[/]")
+            text_lines.append("")
+            text_lines.append(f"[#888888]VOL[/] {vol_bar}")
+        else:
+            title = info.get("title", "Unknown")[:30]
+            artist = info.get("artist", "")[:28]
+            status_code = info.get("status", 0)
+            status = _STATUS.get(status_code, "Playing")
 
-        title = info.get("title", "Unknown")[:30]
-        artist = info.get("artist", "")[:28]
-        status_code = info.get("status", 0)
-        status = _STATUS.get(status_code, "Playing")
-        artist_line = f"\n[#888888]{artist}[/]" if artist else ""
+            text_lines.append(f"[bold #4ade80]{status}[/]")
+            text_lines.append(f"[bold white]{title}[/]")
+            if artist:
+                text_lines.append(f"[#888888]{artist}[/]")
 
-        pos = info.get("position")
-        dur = info.get("duration")
-        progress_line = f"\n{_progress_bar(pos, dur)}" if pos is not None and dur is not None else ""
+            pos = info.get("position")
+            dur = info.get("duration")
+            if pos is not None and dur is not None:
+                text_lines.append(_progress_bar(pos, dur))
 
-        self.update(
-            f"[bold #888888]NOW PLAYING[/]\n\n"
-            f"[bold #4ade80]{status}[/]\n"
-            f"[bold white]{title}[/]"
-            f"{artist_line}"
-            f"{progress_line}\n\n"
-            f"[#888888]VOL[/] {vol_bar}"
-        )
+            text_lines.append("")
+            text_lines.append(f"[#888888]VOL[/] {vol_bar}")
+
+        if art_lines:
+            # Side-by-side: art on left, text on right
+            max_rows = max(len(art_lines), len(text_lines))
+            art_width = len(art_lines[0]) if art_lines else 0
+            blank_art = " " * art_width
+
+            while len(art_lines) < max_rows:
+                art_lines.append(blank_art)
+            while len(text_lines) < max_rows:
+                text_lines.append("")
+
+            merged = []
+            for art_row, text_row in zip(art_lines, text_lines):
+                merged.append(f"[#4ade80]{art_row}[/]  {text_row}")
+            self.update("\n".join(merged))
+        else:
+            self.update("\n".join(text_lines))
