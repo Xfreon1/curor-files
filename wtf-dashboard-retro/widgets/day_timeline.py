@@ -179,14 +179,6 @@ class DayTimelineWidget(Static):
     def on_resize(self, event) -> None:
         self._draw()
 
-    def _month_height(self, width: int) -> int:
-        """Calculate height needed for month view."""
-        today = date.today()
-        num_days = calendar.monthrange(today.year, today.month)[1]
-        cols = max(1, (width - 2) // 15)
-        rows = (num_days + cols - 1) // cols
-        return rows + 1  # +1 for header
-
     def action_toggle_mode(self) -> None:
         self._mode_idx = (self._mode_idx + 1) % 3
         mode = _MODES[self._mode_idx]
@@ -194,13 +186,9 @@ class DayTimelineWidget(Static):
             self.styles.height = 1
         elif mode == "detail":
             self.styles.height = 4
-        else:  # month
-            try:
-                width = self.size.width - 2
-            except Exception:
-                width = 72
-            self.styles.height = self._month_height(width)
-        self._draw()
+        else:  # month — auto-size to content
+            self.styles.height = "auto"
+        self.call_after_refresh(self._draw)
 
     def _draw(self) -> None:
         pomo_state.check_day_reset()
@@ -222,7 +210,6 @@ class DayTimelineWidget(Static):
             self.update("\n".join(lines))
         elif mode == "month":
             history = pomo_state.get_month_history()
-            self.styles.height = self._month_height(width)
             self.update(_build_month(history, width))
         else:
             sessions, day_start = pomo_state.get_snapshot()
