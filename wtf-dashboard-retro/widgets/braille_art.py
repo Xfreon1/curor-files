@@ -23,15 +23,28 @@ def image_to_braille(image_bytes: bytes, width: int = 16, height: int = 8) -> li
         List of strings, one per row. Empty list on failure.
     """
     try:
-        from PIL import Image
+        from PIL import Image, ImageEnhance, ImageFilter, ImageOps
     except ImportError:
         return []
 
     try:
         img = Image.open(io.BytesIO(image_bytes))
         img = img.convert("L")  # grayscale
+
+        # Auto-contrast: stretch histogram to use full 0-255 range
+        img = ImageOps.autocontrast(img, cutoff=1)
+
+        # Resize with high-quality resampling
         img = img.resize((width * 2, height * 4), Image.LANCZOS)
-        img = img.convert("1")  # 1-bit with Floyd-Steinberg dithering
+
+        # Sharpen edges so detail survives dithering
+        img = img.filter(ImageFilter.SHARPEN)
+
+        # Boost contrast slightly for crisper dots
+        img = ImageEnhance.Contrast(img).enhance(1.4)
+
+        # Floyd-Steinberg dithering to 1-bit
+        img = img.convert("1")
         pixels = img.load()
 
         rows = []
