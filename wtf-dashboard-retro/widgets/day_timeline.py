@@ -1,10 +1,14 @@
+import calendar
 import time
+from datetime import date
 from textual.widgets import Static
 from textual.binding import Binding
 import widgets.pomo_state as pomo_state
 
 _COLORS = {"w": "#4ade80", "b": "#f87171", "f": "#1a1a1a"}
 _TEXT   = {"w": "#1a1a1a", "b": "#1a1a1a", "f": "#666666"}
+
+_MODES = ["overview", "detail", "month"]
 
 
 def _build_bar(sessions: list, day_start: float, start_hour: int, width: int) -> str:
@@ -109,8 +113,51 @@ def _build_overview(sessions: list, day_start: float, width: int) -> str:
     return result
 
 
+def _build_month(history: dict, width: int) -> str:
+    """Build monthly work/break overview grid."""
+    today = date.today()
+    num_days = calendar.monthrange(today.year, today.month)[1]
+    month_name = today.strftime("%B %Y").upper()
+
+    # Each entry: "DD ██████░░ WW% " = ~15 chars
+    entry_w = 15
+    cols = max(1, width // entry_w)
+
+    lines = [f"[bold #888888]{month_name}[/]  [#444444]t = toggle[/]"]
+
+    row = []
+    for d in range(1, num_days + 1):
+        key = date(today.year, today.month, d).isoformat()
+        day_data = history.get(key, {})
+        work_s = day_data.get("work", 0)
+        break_s = day_data.get("break", 0)
+        total = work_s + break_s
+        pct = int(work_s / total * 100) if total > 0 else 0
+
+        bar_w = 6
+        filled = int(pct / 100 * bar_w)
+        bar = f"[#4ade80]{'█' * filled}[/][#333333]{'░' * (bar_w - filled)}[/]"
+
+        if d == today.day:
+            entry = f"[bold #ffaf00]{d:2}[/] {bar} [#4ade80]{pct:3d}%[/]"
+        elif date(today.year, today.month, d) > today:
+            entry = f"[#444444]{d:2} {'·' * bar_w}    [/]"
+        else:
+            entry = f"[#888888]{d:2}[/] {bar} [#666666]{pct:3d}%[/]"
+
+        row.append(entry)
+        if len(row) >= cols:
+            lines.append("  ".join(row))
+            row = []
+
+    if row:
+        lines.append("  ".join(row))
+
+    return "\n".join(lines)
+
+
 class DayTimelineWidget(Static):
-    """24-hour work/break timeline. t = toggle overview / detail (4 bars)."""
+    """24-hour work/break timeline. t = toggle overview / detail / month."""
 
     can_focus = True
 
@@ -132,7 +179,7 @@ class DayTimelineWidget(Static):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self._detail_mode: bool = False  # start with single 24h bar
+        self._mode_idx: int = 0  # 0=overview, 1=detail, 2=month
 
     def on_mount(self) -> None:
         self.set_interval(5, self._draw)
@@ -141,14 +188,31 @@ class DayTimelineWidget(Static):
     def on_resize(self, event) -> None:
         self._draw()
 
+    def _month_height(self, width: int) -> int:
+        """Calculate height needed for month view."""
+        today = date.today()
+        num_days = calendar.monthrange(today.year, today.month)[1]
+        cols = max(1, (width - 2) // 15)
+        rows = (num_days + cols - 1) // cols
+        return rows + 1  # +1 for header
+
     def action_toggle_mode(self) -> None:
-        self._detail_mode = not self._detail_mode
-        self.styles.height = 4 if self._detail_mode else 1
+        self._mode_idx = (self._mode_idx + 1) % 3
+        mode = _MODES[self._mode_idx]
+        if mode == "overview":
+            self.styles.height = 1
+        elif mode == "detail":
+            self.styles.height = 4
+        else:  # month
+            try:
+                width = self.size.width - 2
+            except Exception:
+                width = 72
+            self.styles.height = self._month_height(width)
         self._draw()
 
     def _draw(self) -> None:
         pomo_state.check_day_reset()
-        sessions, day_start = pomo_state.get_snapshot()
 
         try:
             width = self.size.width - 2
@@ -157,10 +221,18 @@ class DayTimelineWidget(Static):
         except Exception:
             width = 72
 
-        if self._detail_mode:
+        mode = _MODES[self._mode_idx]
+
+        if mode == "detail":
+            sessions, day_start = pomo_state.get_snapshot()
             lines = []
             for bar_idx in range(4):
                 lines.append(_build_bar(sessions, day_start, bar_idx * 6, width))
             self.update("\n".join(lines))
+        elif mode == "month":
+            history = pomo_state.get_month_history()
+            self.styles.height = self._month_height(width)
+            self.update(_build_month(history, width))
         else:
+            sessions, day_start = pomo_state.get_snapshot()
             self.update(_build_overview(sessions, day_start, width))

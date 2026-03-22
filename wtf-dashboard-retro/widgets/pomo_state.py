@@ -2,6 +2,7 @@
 Shared Pomodoro / timeline session state.
 Imported by CountdownWidget (writes) and DayTimelineWidget (reads).
 Thread-safe via threading.Lock. Persists to pomo_sessions.json.
+Daily totals archived to pomo_history.json for monthly overview.
 """
 import json
 import os
@@ -15,7 +16,9 @@ _sessions: list = []
 _current_day: date | None = None
 _day_start: float = 0.0
 
-_SAVE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "pomo_sessions.json")
+_DIR = os.path.dirname(os.path.dirname(__file__))
+_SAVE_PATH = os.path.join(_DIR, "pomo_sessions.json")
+_HISTORY_PATH = os.path.join(_DIR, "pomo_history.json")
 
 
 def _save() -> None:
@@ -38,6 +41,51 @@ def _save() -> None:
             pass
 
 
+def _load_history() -> dict:
+    """Load monthly history from disk."""
+    if not os.path.exists(_HISTORY_PATH):
+        return {}
+    try:
+        with open(_HISTORY_PATH, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def _save_history(history: dict) -> None:
+    """Write monthly history to disk."""
+    dir_name = os.path.dirname(_HISTORY_PATH) or "."
+    try:
+        fd, tmp = tempfile.mkstemp(dir=dir_name, suffix=".tmp")
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(history, f)
+        os.replace(tmp, _HISTORY_PATH)
+    except Exception:
+        try:
+            os.unlink(tmp)
+        except Exception:
+            pass
+
+
+def _archive_day() -> None:
+    """Archive current day's totals to history. Must be called with _lock held."""
+    if not _sessions or not _current_day:
+        return
+    now = time.time()
+    work = brk = 0.0
+    for s in _sessions:
+        dur = max(0.0, (s["end"] or now) - s["start"])
+        if s["type"] == "work":
+            work += dur
+        else:
+            brk += dur
+    if work + brk < 60:
+        return
+    history = _load_history()
+    history[_current_day.isoformat()] = {"work": work, "break": brk}
+    _save_history(history)
+
+
 def _load() -> bool:
     """Load sessions from disk. Must be called with _lock held. Returns True if loaded."""
     global _sessions, _current_day, _day_start
@@ -48,7 +96,13 @@ def _load() -> bool:
             data = json.load(f)
         saved_day = data.get("day")
         if saved_day != date.today().isoformat():
-            return False  # stale data from a previous day
+            # Archive the stale day before discarding
+            old_day = date.fromisoformat(saved_day) if saved_day else None
+            if old_day:
+                _current_day = old_day
+                _sessions = data.get("sessions", [])
+                _archive_day()
+            return False
         _current_day = date.fromisoformat(saved_day)
         _day_start = data["day_start"]
         _sessions = data["sessions"]
@@ -65,6 +119,9 @@ def _load() -> bool:
 def _do_init(today: date) -> None:
     """Initialize (or reset) for a new day. Must be called with _lock held."""
     global _sessions, _current_day, _day_start
+    # Archive previous day before resetting
+    if _current_day and _current_day != today:
+        _archive_day()
     cur = "break"
     if _sessions and _sessions[-1]["end"] is None:
         cur = _sessions[-1]["type"]
@@ -114,6 +171,26 @@ def get_snapshot() -> tuple:
     """Return (sessions_copy, day_start) for rendering."""
     with _lock:
         return list(_sessions), _day_start
+
+
+def get_month_history() -> dict:
+    """Return {iso_date: {"work": secs, "break": secs}} for current month, including today live."""
+    with _lock:
+        history = _load_history()
+        # Add today's live data
+        today = date.today()
+        now = time.time()
+        work = brk = 0.0
+        for s in _sessions:
+            dur = max(0.0, (s["end"] or now) - s["start"])
+            if s["type"] == "work":
+                work += dur
+            else:
+                brk += dur
+        history[today.isoformat()] = {"work": work, "break": brk}
+        # Filter to current month
+        prefix = today.strftime("%Y-%m")
+        return {k: v for k, v in history.items() if k.startswith(prefix)}
 
 
 def totals() -> tuple:
