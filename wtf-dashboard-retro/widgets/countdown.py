@@ -1,10 +1,13 @@
 import time
+import threading
+import winsound
 from textual.app import ComposeResult
 from textual.widget import Widget
 from textual.widgets import Static, Input
 from textual.containers import Horizontal
 from textual.binding import Binding
 import widgets.pomo_state as pomo_state
+from config import TIMER_SOUND
 
 
 def _timer_bar(remaining: float, total: float, width: int = 20) -> str:
@@ -126,7 +129,20 @@ class CountdownWidget(Widget):
             if self._remaining <= 0:
                 self._running = False
                 pomo_state.open_session("break")
+                self._play_alert()
         self._refresh_display()
+
+    def _play_alert(self) -> None:
+        """Play the timer alert sound in a background thread."""
+        def _sound():
+            try:
+                if TIMER_SOUND:
+                    winsound.PlaySound(TIMER_SOUND, winsound.SND_FILENAME)
+                else:
+                    winsound.PlaySound("SystemExclamation", winsound.SND_ALIAS)
+            except Exception:
+                pass
+        threading.Thread(target=_sound, daemon=True).start()
 
     def _refresh_display(self) -> None:
         rem = self._remaining

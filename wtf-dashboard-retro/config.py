@@ -23,6 +23,9 @@ WEATHER_CITIES = [
 COUNTDOWN_DATE = "2026-12-31"
 COUNTDOWN_LABEL = "Year End"
 
+# Timer alert sound — path to a .wav file, or "" for no sound
+TIMER_SOUND = ""  # e.g. r"C:\Users\Arturs\Music\alert.wav"
+
 # News
 RSS_URL = "https://feeds.feedburner.com/TechCrunch"
 REDDIT_SUBS = ["technology", "artificial"]
