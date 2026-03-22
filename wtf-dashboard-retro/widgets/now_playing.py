@@ -160,7 +160,7 @@ class NowPlayingWidget(Static):
                 if thumb_bytes:
                     try:
                         from widgets.braille_art import image_to_braille
-                        art_lines = image_to_braille(thumb_bytes, width=16, height=8)
+                        art_lines = image_to_braille(thumb_bytes, width=20, height=10)
                     except Exception:
                         pass
                 with self._lock:
