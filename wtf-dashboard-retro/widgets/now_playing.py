@@ -86,13 +86,12 @@ def _get_media_sync() -> dict:
         try:
             thumb_ref = props.thumbnail
             if thumb_ref is not None:
-                from winrt.windows.storage.streams import Buffer, DataReader
+                from winrt.windows.storage.streams import DataReader
                 stream = await thumb_ref.open_read_async()
                 size = stream.size
-                buf = Buffer(size)
-                await stream.read_async(buf, size, 0)
-                reader = DataReader.from_buffer(buf)
-                result["thumbnail_bytes"] = bytes(bytearray(reader.read_bytes(size)))
+                reader = DataReader(stream)
+                await reader.load_async(size)
+                result["thumbnail_bytes"] = bytes(reader.read_buffer(size))
         except Exception:
             pass
 
